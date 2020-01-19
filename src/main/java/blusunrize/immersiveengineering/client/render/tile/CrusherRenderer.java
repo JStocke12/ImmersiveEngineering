@@ -8,11 +8,10 @@
 
 package blusunrize.immersiveengineering.client.render.tile;
 
-import blusunrize.immersiveengineering.api.IEProperties;
+import blusunrize.immersiveengineering.ImmersiveEngineering;
 import blusunrize.immersiveengineering.client.ClientUtils;
 import blusunrize.immersiveengineering.common.blocks.IEBlocks.Multiblocks;
 import blusunrize.immersiveengineering.common.blocks.metal.CrusherTileEntity;
-import blusunrize.immersiveengineering.common.util.Utils;
 import com.mojang.blaze3d.platform.GlStateManager;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.Minecraft;
@@ -24,12 +23,19 @@ import net.minecraft.client.renderer.model.IBakedModel;
 import net.minecraft.client.renderer.tileentity.TileEntityRenderer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.Direction;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.client.model.data.EmptyModelData;
 import org.lwjgl.opengl.GL11;
 
 public class CrusherRenderer extends TileEntityRenderer<CrusherTileEntity>
 {
+	private final DynamicModel<Direction> barrel = DynamicModel.createSided(
+			new ResourceLocation(ImmersiveEngineering.MODID, "block/metal_multiblock/crusher_drum.obj"),
+			"crusher_barrel"
+	);
+
 	@Override
 	public void render(CrusherTileEntity te, double x, double y, double z, float partialTicks, int destroyStage)
 	{
@@ -41,8 +47,8 @@ public class CrusherRenderer extends TileEntityRenderer<CrusherTileEntity>
 		BlockState state = getWorld().getBlockState(blockPos);
 		if(state.getBlock()!=Multiblocks.crusher)
 			return;
-		state = state.with(IEProperties.DYNAMICRENDER, true);
-		IBakedModel model = blockRenderer.getBlockModelShapes().getModel(state);
+		Direction dir = te.getFacing();
+		IBakedModel model = barrel.get(dir);
 
 		boolean b = te.shouldRenderAsActive();
 		float angle = te.animation_barrelRotation+(b?18*partialTicks: 0);
@@ -84,7 +90,7 @@ public class CrusherRenderer extends TileEntityRenderer<CrusherTileEntity>
 		bb.begin(GL11.GL_QUADS, DefaultVertexFormats.BLOCK);
 		bb.setTranslation(-.5-pos.getX(), -.5-pos.getY(), -.5-pos.getZ());
 		bb.color(255, 255, 255, 255);
-		blockRenderer.getBlockModelRenderer().renderModel(te.getWorld(), model, state, pos, bb, true, Utils.RAND,
+		blockRenderer.getBlockModelRenderer().renderModel(te.getWorld(), model, state, pos, bb, true, getWorld().rand,
 				0, EmptyModelData.INSTANCE);
 		bb.setTranslation(0.0D, 0.0D, 0.0D);
 		tes.draw();

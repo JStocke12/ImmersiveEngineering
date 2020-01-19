@@ -27,6 +27,7 @@ import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.Direction;
 import net.minecraft.util.Direction.Axis;
 import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.World;
 import net.minecraft.world.storage.loot.LootContext.Builder;
@@ -38,7 +39,7 @@ import java.util.List;
  * @author BluSunrize - 01.10.2016
  */
 public class StripCurtainTileEntity extends IEBaseTileEntity implements ITickableTileEntity, IRedstoneOutput, IHammerInteraction,
-		IAdvancedCollisionBounds, IAdvancedDirectionalTile, IStateBasedDirectional, IDualState, IColouredTile, ITileDrop
+		IAdvancedCollisionBounds, IAdvancedDirectionalTile, IStateBasedDirectional, IColouredTile, ITileDrop
 {
 	public static TileEntityType<StripCurtainTileEntity> TYPE;
 
@@ -143,7 +144,7 @@ public class StripCurtainTileEntity extends IEBaseTileEntity implements ITickabl
 	}
 
 	@Override
-	public List<AxisAlignedBB> getAdvancedColisionBounds()
+	public List<AxisAlignedBB> getAdvancedCollisionBounds()
 	{
 		return Lists.newArrayList(bounds[isCeilingAttached()?(getFacing().getAxis()==Axis.Z?4: 5): ((getFacing().ordinal()-2)%4)]);
 	}
@@ -184,12 +185,8 @@ public class StripCurtainTileEntity extends IEBaseTileEntity implements ITickabl
 	{
 		if(side==Direction.DOWN)
 			setCeilingAttached(true);
-	}
-
-	@Override
-	public boolean getIsSecondState()
-	{
-		return isCeilingAttached();
+		else
+			setCeilingAttached(false);
 	}
 
 	@Override
@@ -217,10 +214,13 @@ public class StripCurtainTileEntity extends IEBaseTileEntity implements ITickabl
 	}
 
 	@Override
-	public boolean hammerUseSide(Direction side, PlayerEntity player, float hitX, float hitY, float hitZ)
+	public boolean hammerUseSide(Direction side, PlayerEntity player, Vec3d hitVec)
 	{
-		strongSignal = !strongSignal;
-		ChatUtils.sendServerNoSpamMessages(player, new TranslationTextComponent(Lib.CHAT_INFO+"rsControl.strongSignal."+strongSignal));
+		if(!world.isRemote)
+		{
+			strongSignal = !strongSignal;
+			ChatUtils.sendServerNoSpamMessages(player, new TranslationTextComponent(Lib.CHAT_INFO+"rsControl.strongSignal."+strongSignal));
+		}
 		return true;
 	}
 

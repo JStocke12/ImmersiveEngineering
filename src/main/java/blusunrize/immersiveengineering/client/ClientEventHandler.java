@@ -9,19 +9,20 @@
 package blusunrize.immersiveengineering.client;
 
 import blusunrize.immersiveengineering.ImmersiveEngineering;
+import blusunrize.immersiveengineering.api.DimensionBlockPos;
 import blusunrize.immersiveengineering.api.Lib;
 import blusunrize.immersiveengineering.api.crafting.BlastFurnaceRecipe;
 import blusunrize.immersiveengineering.api.crafting.BlueprintCraftingRecipe;
 import blusunrize.immersiveengineering.api.energy.immersiveflux.IFluxReceiver;
-import blusunrize.immersiveengineering.api.energy.wires.Connection;
-import blusunrize.immersiveengineering.api.energy.wires.Connection.RenderData;
-import blusunrize.immersiveengineering.api.energy.wires.IWireCoil;
-import blusunrize.immersiveengineering.api.energy.wires.WireType;
 import blusunrize.immersiveengineering.api.shader.CapabilityShader;
 import blusunrize.immersiveengineering.api.tool.ConveyorHandler;
 import blusunrize.immersiveengineering.api.tool.IDrillHead;
 import blusunrize.immersiveengineering.api.tool.ZoomHandler;
 import blusunrize.immersiveengineering.api.tool.ZoomHandler.IZoomTool;
+import blusunrize.immersiveengineering.api.wires.Connection;
+import blusunrize.immersiveengineering.api.wires.Connection.RenderData;
+import blusunrize.immersiveengineering.api.wires.IWireCoil;
+import blusunrize.immersiveengineering.api.wires.WireType;
 import blusunrize.immersiveengineering.client.fx.FractalParticle;
 import blusunrize.immersiveengineering.client.gui.BlastFurnaceScreen;
 import blusunrize.immersiveengineering.client.gui.RevolverScreen;
@@ -51,7 +52,6 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.platform.GlStateManager.DestFactor;
 import com.mojang.blaze3d.platform.GlStateManager.SourceFactor;
 import net.minecraft.block.Block;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.ITickableSound;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.multiplayer.PlayerController;
@@ -59,7 +59,6 @@ import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.entity.LivingRenderer;
 import net.minecraft.client.renderer.entity.model.EntityModel;
 import net.minecraft.client.renderer.entity.model.IHasHead;
-import net.minecraft.client.renderer.texture.AtlasTexture;
 import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.resources.I18n;
@@ -85,8 +84,8 @@ import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.World;
 import net.minecraftforge.client.ForgeIngameGui;
 import net.minecraftforge.client.event.*;
-import net.minecraftforge.client.event.GuiScreenEvent.MouseScrollEvent;
 import net.minecraftforge.client.event.sound.PlaySoundEvent;
+import net.minecraftforge.common.util.Constants.NBT;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.TickEvent.Phase;
@@ -123,16 +122,10 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 	public void onResourceManagerReload(@Nonnull IResourceManager resourceManager, Predicate<IResourceType> resourcePredicate)
 	{
 		if(resourcePredicate.test(VanillaResourceType.TEXTURES))
-		{
-			AtlasTexture texturemap = Minecraft.getInstance().getTextureMap();
-			for(int i = 0; i < ClientUtils.destroyBlockIcons.length; i++)
-				ClientUtils.destroyBlockIcons[i] = texturemap.getAtlasSprite("minecraft:blocks/destroy_stage_"+i);
-
 			ImmersiveEngineering.proxy.clearRenderCaches();
-		}
 	}
 
-	public static final Map<Connection, Pair<BlockPos, AtomicInteger>> FAILED_CONNECTIONS = new HashMap<>();
+	public static final Map<Connection, Pair<Collection<BlockPos>, AtomicInteger>> FAILED_CONNECTIONS = new HashMap<>();
 
 	@SubscribeEvent
 	public void onPlayerTick(TickEvent.PlayerTickEvent event)
@@ -278,7 +271,9 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 			ItemStack earmuffs = ClientUtils.mc().player.getItemStackFromSlot(EquipmentSlotType.HEAD);
 			if(ItemNBTHelper.hasKey(earmuffs, Lib.NBT_Earmuffs))
 				earmuffs = ItemNBTHelper.getItemStack(earmuffs, Lib.NBT_Earmuffs);
-			if(!earmuffs.isEmpty()&&Misc.earmuffs.equals(earmuffs.getItem())&&!ItemNBTHelper.getBoolean(earmuffs, "IE:Earmuffs:Cat_"+event.getSound().getCategory().getName()))
+			if(!earmuffs.isEmpty()&&
+					Misc.earmuffs==earmuffs.getItem()&&
+					!ItemNBTHelper.getBoolean(earmuffs, "IE:Earmuffs:Cat_"+event.getSound().getCategory().getName()))
 			{
 				for(String blacklist : IEConfig.TOOLS.earDefenders_SoundBlacklist.get())
 					if(blacklist!=null&&blacklist.equalsIgnoreCase(event.getSound().getSoundLocation().toString()))
@@ -301,14 +296,16 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 	private void renderObstructingBlocks(BufferBuilder bb, Tessellator tes, double dx, double dy, double dz)
 	{
 		bb.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION);
-		for(Map.Entry<Connection, Pair<BlockPos, AtomicInteger>> entry : FAILED_CONNECTIONS.entrySet())
+		for(Entry<Connection, Pair<Collection<BlockPos>, AtomicInteger>> entry : FAILED_CONNECTIONS.entrySet())
 		{
-			BlockPos obstruction = entry.getValue().getKey();
-			bb.setTranslation(obstruction.getX()-dx,
-					obstruction.getY()-dy,
-					obstruction.getZ()-dz);
-			final double eps = 1e-3;
-			ClientUtils.renderBox(bb, -eps, -eps, -eps, 1+eps, 1+eps, 1+eps);
+			for(BlockPos obstruction : entry.getValue().getKey())
+			{
+				bb.setTranslation(obstruction.getX()-dx,
+						obstruction.getY()-dy,
+						obstruction.getZ()-dz);
+				final double eps = 1e-3;
+				ClientUtils.renderBox(bb, -eps, -eps, -eps, 1+eps, 1+eps, 1+eps);
+			}
 		}
 		bb.setTranslation(0, 0, 0);
 		tes.draw();
@@ -317,7 +314,7 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 	@SubscribeEvent
 	public void onRenderItemFrame(RenderItemInFrameEvent event)
 	{
-		if(!event.getItem().isEmpty()&&event.getItem().getItem() instanceof EngineersBlueprintItem)
+		if(event.getItem().getItem() instanceof EngineersBlueprintItem)
 		{
 			double playerDistanceSq = ClientUtils.mc().player.getDistanceSq(event.getEntityItemFrame());
 
@@ -351,6 +348,7 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 						GlStateManager.enableAlphaTest();
 						GlStateManager.enableTexture();
 						GlStateManager.enableCull();
+						GlStateManager.disableBlend();
 
 						event.setCanceled(true);
 					}
@@ -451,29 +449,28 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 				if(!player.getHeldItem(hand).isEmpty())
 				{
 					ItemStack equipped = player.getHeldItem(hand);
-					if(ItemStack.areItemStacksEqual(new ItemStack(Tools.voltmeter), equipped)||equipped.getItem() instanceof IWireCoil)
+					if(ItemStack.areItemsEqual(new ItemStack(Tools.voltmeter), equipped)||equipped.getItem() instanceof IWireCoil)
 					{
-						if(ItemNBTHelper.hasKey(equipped, "linkingPos"))
+						if(equipped.hasTag()&&equipped.getOrCreateTag().contains("linkingPos", NBT.TAG_COMPOUND))
 						{
-							int[] link = ItemNBTHelper.getIntArray(equipped, "linkingPos");
-							if(link.length > 3)
+							CompoundNBT link = equipped.getOrCreateTag().getCompound("linkingPos");
+							DimensionBlockPos pos = new DimensionBlockPos(link.getCompound("master"));
+							String s = I18n.format(Lib.DESC_INFO+"attachedTo", pos.pos.getX(), pos.pos.getY(), pos.pos.getZ());
+							int col = WireType.ELECTRUM.getColour(null);
+							if(equipped.getItem() instanceof IWireCoil)
 							{
-								String s = I18n.format(Lib.DESC_INFO+"attachedTo", link[1], link[2], link[3]);
-								int col = WireType.ELECTRUM.getColour(null);
-								if(equipped.getItem() instanceof IWireCoil)
-								{
-									RayTraceResult rtr = ClientUtils.mc().objectMouseOver;
-									double d;
-									if(rtr instanceof BlockRayTraceResult)
-										d = ((BlockRayTraceResult)rtr).getPos().distanceSq(link[1], link[2], link[3], true);
-									else
-										d = player.getDistanceSq(link[1], link[2], link[3]);
-									int max = ((IWireCoil)equipped.getItem()).getWireType(equipped).getMaxLength();
-									if(d > max*max)
-										col = 0xdd3333;
-								}
-								ClientUtils.font().drawStringWithShadow(s, scaledWidth/2-ClientUtils.font().getStringWidth(s)/2, scaledHeight-ForgeIngameGui.left_height-20, col);
+								//TODO use actual connection offset rather than pos
+								RayTraceResult rtr = ClientUtils.mc().objectMouseOver;
+								double d;
+								if(rtr instanceof BlockRayTraceResult)
+									d = ((BlockRayTraceResult)rtr).getPos().distanceSq(pos.pos.getX(), pos.pos.getY(), pos.pos.getZ(), true);
+								else
+									d = player.getDistanceSq(pos.pos.getX(), pos.pos.getY(), pos.pos.getZ());
+								int max = ((IWireCoil)equipped.getItem()).getWireType(equipped).getMaxLength();
+								if(d > max*max)
+									col = 0xdd3333;
 							}
+							ClientUtils.font().drawStringWithShadow(s, scaledWidth/2-ClientUtils.font().getStringWidth(s)/2, scaledHeight-ForgeIngameGui.left_height-20, col);
 						}
 					}
 					else if(equipped.getItem()==Misc.fluorescentTube)
@@ -544,10 +541,12 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 						int chargeLevel = duration < 72000?Math.min(99, (int)(duration/(float)chargeTime*100)): 0;
 						float scale = 2f;
 						GlStateManager.pushMatrix();
+						GlStateManager.enableBlend();
 						GlStateManager.translated(scaledWidth-80, scaledHeight-30, 0);
 						GlStateManager.scalef(scale, scale, 1);
 						ClientProxy.nixieFont.drawString((chargeLevel < 10?"0": "")+chargeLevel, 0, 0, Lib.colour_nixieTubeText);
 						GlStateManager.scalef(1/scale, 1/scale, 1);
+						GlStateManager.disableBlend();
 						GlStateManager.popMatrix();
 					}
 					else if(equipped.getItem() instanceof DrillItem||equipped.getItem() instanceof ChemthrowerItem)
@@ -658,7 +657,6 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 					}
 					if(equipped.getItem()==Tools.voltmeter)
 					{
-
 						RayTraceResult rrt = ClientUtils.mc().objectMouseOver;
 						IFluxReceiver receiver = null;
 						Direction side = null;
@@ -683,13 +681,17 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 								text = I18n.format(Lib.DESC_INFO+"energyStored", "<br>"+Utils.toScientificNotation(storage, "0##", 100000)+" / "+Utils.toScientificNotation(maxStorage, "0##", 100000)).split("<br>");
 							int col = IEConfig.GENERAL.nixietubeFont.get()?Lib.colour_nixieTubeText: 0xffffff;
 							int i = 0;
+							GlStateManager.enableBlend();
 							for(String s : text)
 								if(s!=null)
 								{
+									s = s.trim();
 									int w = ClientProxy.nixieFontOptional.getStringWidth(s);
 									ClientProxy.nixieFontOptional.drawStringWithShadow(s, scaledWidth/2-w/2,
-											scaledHeight/2-4-text.length*(ClientProxy.nixieFontOptional.FONT_HEIGHT+2)+(i++)*(ClientProxy.nixieFontOptional.FONT_HEIGHT+2), col);
+											scaledHeight/2-4-text.length*(ClientProxy.nixieFontOptional.getFontHeight()+2)+
+													(i++)*(ClientProxy.nixieFontOptional.getFontHeight()+2), col);
 								}
+							GlStateManager.disableBlend();
 						}
 					}
 				}
@@ -801,7 +803,7 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 	}
 
 	@SubscribeEvent
-	public void onMouseEvent(MouseScrollEvent event)
+	public void onMouseEvent(InputEvent.MouseScrollEvent event)
 	{
 		if(event.getScrollDelta()!=0&&ClientUtils.mc().currentScreen==null)
 		{
@@ -1088,11 +1090,11 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 			chunkBorders = true;
 
 		float partial = event.getPartialTicks();
+		double px = TileEntityRendererDispatcher.staticPlayerX;
+		double py = TileEntityRendererDispatcher.staticPlayerY;
+		double pz = TileEntityRendererDispatcher.staticPlayerZ;
 		if(!FractalParticle.PARTICLE_FRACTAL_DEQUE.isEmpty())
 		{
-			double px = TileEntityRendererDispatcher.staticPlayerX;
-			double py = TileEntityRendererDispatcher.staticPlayerY;
-			double pz = TileEntityRendererDispatcher.staticPlayerZ;
 
 			Tessellator tessellator = Tessellator.getInstance();
 
@@ -1117,9 +1119,6 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 		if(chunkBorders)
 		{
 			PlayerEntity player = ClientUtils.mc().player;
-			double px = TileEntityRendererDispatcher.staticPlayerX;
-			double py = TileEntityRendererDispatcher.staticPlayerY;
-			double pz = TileEntityRendererDispatcher.staticPlayerZ;
 			int chunkX = (int)player.posX >> 4<<4;
 			int chunkZ = (int)player.posZ >> 4<<4;
 			int y = Math.min((int)player.posY-2, 0);//TODO player.getEntityWorld().getChunk(new BlockPos(player.posX, 0, player.posZ)).getLowestHeight());
@@ -1168,9 +1167,6 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 			Entity viewer = ClientUtils.mc().getRenderViewEntity();
 			if(viewer==null)
 				viewer = ClientUtils.mc().player;
-			double dx = viewer.lastTickPosX+(viewer.posX-viewer.lastTickPosX)*partial;
-			double dy = viewer.lastTickPosY+(viewer.posY-viewer.lastTickPosY)*partial;
-			double dz = viewer.lastTickPosZ+(viewer.posZ-viewer.lastTickPosZ)*partial;
 			Tessellator tes = Tessellator.getInstance();
 			BufferBuilder bb = tes.getBuffer();
 			float oldLineWidth = GL11.glGetFloat(GL11.GL_LINE_WIDTH);
@@ -1178,12 +1174,12 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 			GlStateManager.disableTexture();
 			GlStateManager.enableBlend();
 			bb.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
-			for(Entry<Connection, Pair<BlockPos, AtomicInteger>> entry : FAILED_CONNECTIONS.entrySet())
+			for(Entry<Connection, Pair<Collection<BlockPos>, AtomicInteger>> entry : FAILED_CONNECTIONS.entrySet())
 			{
 				Connection conn = entry.getKey();
-				bb.setTranslation(conn.getEndA().getX()-dx,
-						conn.getEndA().getY()-dy,
-						conn.getEndA().getZ()-dz);
+				bb.setTranslation(conn.getEndA().getX()-px,
+						conn.getEndA().getY()-py,
+						conn.getEndA().getZ()-pz);
 				int time = entry.getValue().getValue().get();
 				float alpha = (float)Math.min((2+Math.sin(time*Math.PI/40))/3, time/20F);
 				Vec3d prev = conn.getPoint(0, conn.getEndA());
@@ -1203,7 +1199,7 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 			GlStateManager.lineWidth(oldLineWidth);
 			GlStateManager.enableBlend();
 			GlStateManager.color4f(1, 0, 0, .5F);
-			renderObstructingBlocks(bb, tes, dx, dy, dz);
+			renderObstructingBlocks(bb, tes, px, py, pz);
 
 			GlStateManager.disableBlend();
 			GlStateManager.enableTexture();

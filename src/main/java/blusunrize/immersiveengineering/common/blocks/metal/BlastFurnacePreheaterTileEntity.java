@@ -8,7 +8,7 @@
 
 package blusunrize.immersiveengineering.common.blocks.metal;
 
-import blusunrize.immersiveengineering.api.IEEnums.SideConfig;
+import blusunrize.immersiveengineering.api.IEEnums.IOSideConfig;
 import blusunrize.immersiveengineering.api.IEProperties;
 import blusunrize.immersiveengineering.api.energy.immersiveflux.FluxStorage;
 import blusunrize.immersiveengineering.common.IEConfig;
@@ -74,6 +74,7 @@ public class BlastFurnacePreheaterTileEntity extends IEBaseTileEntity implements
 	@Override
 	public void placeDummies(BlockItemUseContext ctx, BlockState state)
 	{
+		state = state.with(IEProperties.MULTIBLOCKSLAVE, true);
 		for(int i = 1; i <= 2; i++)
 		{
 			world.setBlockState(pos.add(0, i, 0), state);
@@ -123,9 +124,9 @@ public class BlastFurnacePreheaterTileEntity extends IEBaseTileEntity implements
 
 	@Nonnull
 	@Override
-	public SideConfig getEnergySideConfig(Direction facing)
+	public IOSideConfig getEnergySideConfig(Direction facing)
 	{
-		return dummy==2&&facing==Direction.UP?SideConfig.INPUT: SideConfig.NONE;
+		return dummy==2&&facing==Direction.UP?IOSideConfig.INPUT: IOSideConfig.NONE;
 	}
 
 	IEForgeEnergyWrapper wrapper = new IEForgeEnergyWrapper(this, Direction.UP);

@@ -16,17 +16,18 @@
 
 package blusunrize.immersiveengineering.common;
 
-import blusunrize.immersiveengineering.api.energy.wires.Connection;
+import blusunrize.immersiveengineering.client.fx.IEParticles;
 import blusunrize.immersiveengineering.common.blocks.metal.BucketWheelTileEntity;
 import blusunrize.immersiveengineering.common.entities.SkylineHookEntity;
+import blusunrize.immersiveengineering.common.gui.GuiHandler;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.Direction;
 import net.minecraft.util.SoundEvent;
-import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import net.minecraftforge.fluids.FluidStack;
@@ -68,10 +69,6 @@ public class CommonProxy
 	{
 	}
 
-	public void addFailedConnection(Connection connection, BlockPos reason, PlayerEntity player)
-	{
-	}
-
 	public void reloadManual()
 	{
 	}
@@ -90,6 +87,7 @@ public class CommonProxy
 
 	public void spawnSparkFX(World world, double x, double y, double z, double mx, double my, double mz)
 	{
+		world.addParticle(IEParticles.SPARKS, x, y, z, mx, my, mz);
 	}
 
 	public void spawnRedstoneFX(World world, double x, double y, double z, double mx, double my, double mz, float size, float r, float g, float b)
@@ -173,5 +171,20 @@ public class CommonProxy
 
 	public void startSkyhookSound(SkylineHookEntity hook)
 	{
+	}
+
+	public void openManual()
+	{
+
+	}
+
+	public void registerContainersAndScreens()
+	{
+		GuiHandler.commonInit();
+	}
+
+	public Item.Properties useIEOBJRenderer(Item.Properties props)
+	{
+		return props;
 	}
 }

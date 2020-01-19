@@ -12,6 +12,8 @@ import blusunrize.immersiveengineering.api.ApiUtils;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.nbt.ListNBT;
+import net.minecraft.tags.Tag;
+import net.minecraft.util.IItemProvider;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidUtil;
@@ -32,6 +34,11 @@ public class IngredientStack
 	public int inputSize;
 	public boolean useNBT;
 
+	public IngredientStack(IItemProvider item)
+	{
+		this(new ItemStack(item));
+	}
+
 	public IngredientStack(ItemStack stack)
 	{
 		this.stack = stack;
@@ -42,6 +49,11 @@ public class IngredientStack
 	{
 		this.tag = tag;
 		this.inputSize = inputSize;
+	}
+
+	public IngredientStack(Tag<?> tag)
+	{
+		this(tag.getId());
 	}
 
 	public IngredientStack(ResourceLocation tag)
@@ -131,7 +143,7 @@ public class IngredientStack
 			return stackList;
 		if(tag!=null)
 			return ApiUtils.getItemsInTag(tag);
-		//TODO
+		//TODO when universal buckets are back
 		//if(fluid!=null&&ForgeModContainer.getInstance().universalBucket!=null)
 		//	return Collections.singletonList(UniversalBucket.getFilledBucket(ForgeModContainer.getInstance().universalBucket, fluid.getFluid()));
 		return Collections.singletonList(stack);
@@ -181,7 +193,15 @@ public class IngredientStack
 		if(!ItemStack.areItemsEqual(stack, input)||minSize > input.getCount())
 			return false;
 		if(this.useNBT)
+		{
+			boolean stackHasNBT = stack.hasTag();
+			boolean inputHasNBT = input.hasTag();
+			if(!stackHasNBT&&!inputHasNBT)
+				return true;
+			else if(stackHasNBT!=inputHasNBT)
+				return false;
 			return this.stack.getOrCreateTag().equals(input.getOrCreateTag());
+		}
 		return true;
 	}
 
@@ -214,7 +234,15 @@ public class IngredientStack
 			if(!ItemStack.areItemsEqual(stack, otherStack))
 				return false;
 			if(this.useNBT)
-				return stack.getOrCreateTag().equals(otherStack.getOrCreateTag());
+			{
+				boolean stackHasNBT = stack.hasTag();
+				boolean otherHasNBT = otherStack.hasTag();
+				if(!stackHasNBT&&!otherHasNBT)
+					return true;
+				else if(stackHasNBT!=otherHasNBT)
+					return false;
+				return this.stack.getOrCreateTag().equals(otherStack.getOrCreateTag());
+			}
 			return true;
 		}
 		return false;
@@ -278,5 +306,10 @@ public class IngredientStack
 					return new IngredientStack(fs);
 			}
 		return null;
+	}
+
+	public boolean isValid()
+	{
+		return !getStackList().isEmpty();
 	}
 }

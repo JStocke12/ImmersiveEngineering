@@ -9,15 +9,16 @@
 package blusunrize.immersiveengineering.api.crafting;
 
 import blusunrize.immersiveengineering.api.ApiUtils;
+import blusunrize.immersiveengineering.common.items.IEItems.Misc;
 import blusunrize.immersiveengineering.common.util.ItemNBTHelper;
 import blusunrize.immersiveengineering.common.util.ListUtils;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.nbt.ListNBT;
 import net.minecraft.util.NonNullList;
+import net.minecraftforge.items.ItemHandlerHelper;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,7 +36,6 @@ public class BlueprintCraftingRecipe extends MultiblockRecipe
 {
 	public static float energyModifier = 1;
 	public static float timeModifier = 1;
-	public static Item itemBlueprint;
 
 	public static ArrayList<String> blueprintCategories = new ArrayList<String>();
 	public static ArrayListMultimap<String, BlueprintCraftingRecipe> recipeList = ArrayListMultimap.create();
@@ -63,7 +63,7 @@ public class BlueprintCraftingRecipe extends MultiblockRecipe
 
 	public static ItemStack getTypedBlueprint(String type)
 	{
-		ItemStack stack = new ItemStack(itemBlueprint);
+		ItemStack stack = new ItemStack(Misc.blueprint);
 		ItemNBTHelper.putString(stack, "blueprint", type);
 		return stack;
 	}
@@ -75,13 +75,13 @@ public class BlueprintCraftingRecipe extends MultiblockRecipe
 
 	public int getMaxCrafted(NonNullList<ItemStack> query)
 	{
-		HashMap<ItemStack, Integer> queryAmount = new HashMap<ItemStack, Integer>();
+		HashMap<ItemStack, Integer> queryAmount = new HashMap<>();
 		for(ItemStack q : query)
 			if(!q.isEmpty())
 			{
 				boolean inc = false;
 				for(ItemStack key : queryAmount.keySet())
-					if(ItemStack.areItemStacksEqual(q, key))
+					if(ItemHandlerHelper.canItemStacksStack(q, key))
 					{
 						queryAmount.put(key, queryAmount.get(key)+q.getCount());
 						inc = true;

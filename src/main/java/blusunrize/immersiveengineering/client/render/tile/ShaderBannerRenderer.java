@@ -8,6 +8,7 @@
 
 package blusunrize.immersiveengineering.client.render.tile;
 
+import blusunrize.immersiveengineering.ImmersiveEngineering;
 import blusunrize.immersiveengineering.api.shader.IShaderItem;
 import blusunrize.immersiveengineering.api.shader.ShaderCase;
 import blusunrize.immersiveengineering.api.shader.ShaderCase.ShaderLayer;
@@ -32,12 +33,9 @@ public class ShaderBannerRenderer extends TileEntityRenderer<ShaderBannerTileEnt
 	@Override
 	public void render(ShaderBannerTileEntity te, double x, double y, double z, float partialTicks, int destroyStage)
 	{
-		te.getWorldNonnull();
 		int orientation = te.orientation;
 		long time = te.getWorldNonnull().getGameTime();
 		GlStateManager.pushMatrix();
-		float f = 2/3f;
-
 		if(!te.wall)
 		{
 			GlStateManager.translated((float)x+0.5F, (float)y+0.5F, (float)z+0.5F);
@@ -83,12 +81,12 @@ public class ShaderBannerRenderer extends TileEntityRenderer<ShaderBannerTileEnt
 	}
 
 	private static final ResourceLocation BASE_TEXTURE = new ResourceLocation("textures/entity/banner_base.png");
-	private static final HashMap<String, ResourceLocation> CACHE = new HashMap<>();
+	private static final HashMap<ResourceLocation, ResourceLocation> CACHE = new HashMap<>();
 
 	@Nullable
 	private ResourceLocation getBannerResourceLocation(ShaderBannerTileEntity bannerObj)
 	{
-		String name = null;
+		ResourceLocation name = null;
 		ShaderCase sCase = null;
 		ItemStack shader = bannerObj.shader.getShaderItem();
 		if(!shader.isEmpty()&&shader.getItem() instanceof IShaderItem)
@@ -103,7 +101,7 @@ public class ShaderBannerRenderer extends TileEntityRenderer<ShaderBannerTileEnt
 		if(sCase!=null)
 		{
 			ShaderLayer[] layers = sCase.getLayers();
-			ResourceLocation textureLocation = new ResourceLocation("immersiveengineering", "bannershader/"+name);
+			ResourceLocation textureLocation = new ResourceLocation(ImmersiveEngineering.MODID, "bannershader/"+name);
 			ClientUtils.mc().getTextureManager().loadTexture(textureLocation, new IEShaderLayerCompositeTexture(BASE_TEXTURE, layers));
 			CACHE.put(name, textureLocation);
 			return textureLocation;

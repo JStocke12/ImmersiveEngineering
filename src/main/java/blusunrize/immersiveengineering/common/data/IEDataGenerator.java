@@ -9,6 +9,7 @@
 package blusunrize.immersiveengineering.common.data;
 
 import blusunrize.immersiveengineering.ImmersiveEngineering;
+import blusunrize.immersiveengineering.common.data.model.ModelHelper;
 import net.minecraft.data.DataGenerator;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -27,16 +28,18 @@ public class IEDataGenerator
 		if(event.includeServer())
 		{
 			gen.addProvider(new Recipes(gen));
-			gen.addProvider(new ItemTags(gen));
 			gen.addProvider(new BlockTags(gen));
+			gen.addProvider(new ItemTags(gen));
 			gen.addProvider(new BlockLoot(gen));
+			gen.addProvider(new GeneralLoot(gen));
+			ModelHelper.EXISTING_FILE_HELPER = event.getExistingFileHelper();
 			Models models = new Models(gen);
 			gen.addProvider(models);
 			gen.addProvider(new BlockStates(gen, models));
 		}
 	}
 
-	static ResourceLocation rl(String path)
+	public static ResourceLocation rl(String path)
 	{
 		return new ResourceLocation(ImmersiveEngineering.MODID, path);
 	}

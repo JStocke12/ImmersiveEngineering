@@ -8,11 +8,10 @@
 
 package blusunrize.immersiveengineering.client.render.tile;
 
-import blusunrize.immersiveengineering.api.IEProperties;
+import blusunrize.immersiveengineering.ImmersiveEngineering;
 import blusunrize.immersiveengineering.client.ClientUtils;
 import blusunrize.immersiveengineering.common.blocks.IEBlocks.Multiblocks;
 import blusunrize.immersiveengineering.common.blocks.metal.MixerTileEntity;
-import blusunrize.immersiveengineering.common.util.Utils;
 import com.mojang.blaze3d.platform.GlStateManager;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.Minecraft;
@@ -24,6 +23,7 @@ import net.minecraft.client.renderer.model.IBakedModel;
 import net.minecraft.client.renderer.tileentity.TileEntityRenderer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.Direction;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.client.model.data.EmptyModelData;
 import net.minecraftforge.fluids.FluidStack;
@@ -31,6 +31,10 @@ import org.lwjgl.opengl.GL11;
 
 public class MixerRenderer extends TileEntityRenderer<MixerTileEntity>
 {
+	private final DynamicModel<Direction> dynamic = DynamicModel.createSided(
+			new ResourceLocation(ImmersiveEngineering.MODID, "block/metal_multiblock/mixer_agitator.obj"),
+			"mixer");
+
 	@Override
 	public void render(MixerTileEntity te, double x, double y, double z, float partialTicks, int destroyStage)
 	{
@@ -42,8 +46,7 @@ public class MixerRenderer extends TileEntityRenderer<MixerTileEntity>
 		BlockState state = getWorld().getBlockState(blockPos);
 		if(state.getBlock()!=Multiblocks.mixer)
 			return;
-		state = state.with(IEProperties.DYNAMICRENDER, true);
-		IBakedModel model = blockRenderer.getBlockModelShapes().getModel(state);
+		IBakedModel model = dynamic.get(te.getFacing());
 
 		Tessellator tessellator = Tessellator.getInstance();
 		BufferBuilder worldRenderer = tessellator.getBuffer();
@@ -52,7 +55,7 @@ public class MixerRenderer extends TileEntityRenderer<MixerTileEntity>
 		GlStateManager.pushMatrix();
 		GlStateManager.translated(x+.5, y+.5, z+.5);
 
-		if(te.isMirrored())
+		if(te.getIsMirrored())
 			GlStateManager.scalef(te.getFacing().getXOffset()==0?-1: 1, 1, te.getFacing().getZOffset()==0?-1: 1);
 
 		GlStateManager.pushMatrix();
@@ -72,27 +75,12 @@ public class MixerRenderer extends TileEntityRenderer<MixerTileEntity>
 		worldRenderer.setTranslation(-.5-blockPos.getX(), -.5-blockPos.getY(), -.5-blockPos.getZ());
 		worldRenderer.color(255, 255, 255, 255);
 		blockRenderer.getBlockModelRenderer().renderModel(te.getWorldNonnull(), model, state, blockPos, worldRenderer, true,
-				Utils.RAND, 0, EmptyModelData.INSTANCE);
+				getWorld().rand, 0, EmptyModelData.INSTANCE);
 		worldRenderer.setTranslation(0.0D, 0.0D, 0.0D);
 		tessellator.draw();
 		RenderHelper.enableStandardItemLighting();
 
 		GlStateManager.popMatrix();
-
-		switch(te.getFacing())
-		{
-			case NORTH:
-				break;
-			case SOUTH:
-				GlStateManager.rotatef(180, 0, 1, 0);
-				break;
-			case WEST:
-				GlStateManager.rotatef(90, 0, 1, 0);
-				break;
-			case EAST:
-				GlStateManager.rotatef(-90, 0, 1, 0);
-				break;
-		}
 
 		GlStateManager.scalef(.0625f, 1, .0625f);
 		GlStateManager.rotatef(90, 1, 0, 0);

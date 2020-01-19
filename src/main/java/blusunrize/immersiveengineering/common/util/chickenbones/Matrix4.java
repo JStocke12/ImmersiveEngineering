@@ -429,6 +429,13 @@ public class Matrix4
 		return new Vec3d(x, y, z);
 	}
 
+	public net.minecraft.client.renderer.Vector3f apply(net.minecraft.client.renderer.Vector3f vec)
+	{
+		Vec3d input = new Vec3d(vec.getX(), vec.getY(), vec.getZ());
+		Vec3d output = apply(input);
+		return new net.minecraft.client.renderer.Vector3f((float)output.x, (float)output.y, (float)output.z);
+	}
+
 	public Vec3d apply(Vec3d vec)
 	{
 		return mult3x3(vec).add(m03, m13, m23);
@@ -569,5 +576,37 @@ public class Matrix4
 		in.put((float)m33);
 		in.flip();
 		return in;
+	}
+
+	public double getElement(int row, int column)
+	{
+		switch(row)
+		{
+			case 0:
+				return mux(column, m00, m01, m02, m03);
+			case 1:
+				return mux(column, m10, m11, m12, m13);
+			case 2:
+				return mux(column, m20, m21, m22, m23);
+			case 3:
+				return mux(column, m30, m31, m32, m33);
+		}
+		throw new IllegalArgumentException(row+", "+column);
+	}
+
+	private double mux(int sel, double v0, double v1, double v2, double v3)
+	{
+		switch(sel)
+		{
+			case 0:
+				return v0;
+			case 1:
+				return v1;
+			case 2:
+				return v2;
+			case 3:
+				return v3;
+		}
+		throw new IllegalArgumentException("No such element: "+sel);
 	}
 }

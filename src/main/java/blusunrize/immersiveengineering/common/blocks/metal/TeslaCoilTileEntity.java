@@ -10,7 +10,7 @@ package blusunrize.immersiveengineering.common.blocks.metal;
 
 import blusunrize.immersiveengineering.ImmersiveEngineering;
 import blusunrize.immersiveengineering.api.ApiUtils;
-import blusunrize.immersiveengineering.api.IEEnums.SideConfig;
+import blusunrize.immersiveengineering.api.IEEnums.IOSideConfig;
 import blusunrize.immersiveengineering.api.IEProperties;
 import blusunrize.immersiveengineering.api.Lib;
 import blusunrize.immersiveengineering.api.energy.immersiveflux.FluxStorage;
@@ -400,35 +400,38 @@ public class TeslaCoilTileEntity extends IEBaseTileEntity implements ITickableTi
 	}
 
 	@Override
-	public boolean hammerUseSide(Direction side, PlayerEntity player, float hitX, float hitY, float hitZ)
+	public boolean hammerUseSide(Direction side, PlayerEntity player, Vec3d hitVec)
 	{
 		if(dummy)
 		{
 			TileEntity te = world.getTileEntity(getPos().offset(getFacing(), -1));
 			if(te instanceof TeslaCoilTileEntity)
-				return ((TeslaCoilTileEntity)te).hammerUseSide(side, player, hitX, hitY, hitZ);
+				return ((TeslaCoilTileEntity)te).hammerUseSide(side, player, hitVec);
 			return false;
 		}
-		if(player.isSneaking())
+		if(!world.isRemote)
 		{
-			int energyDrain = IEConfig.MACHINES.teslacoil_consumption.get();
-			if(lowPower)
-				energyDrain /= 2;
-			if(canRun(energyDrain))
-				player.attackEntityFrom(IEDamageSources.causeTeslaPrimaryDamage(), Float.MAX_VALUE);
+			if(player.isSneaking())
+			{
+				int energyDrain = IEConfig.MACHINES.teslacoil_consumption.get();
+				if(lowPower)
+					energyDrain /= 2;
+				if(canRun(energyDrain))
+					player.attackEntityFrom(IEDamageSources.causeTeslaPrimaryDamage(), Float.MAX_VALUE);
+				else
+				{
+					lowPower = !lowPower;
+					ChatUtils.sendServerNoSpamMessages(player, new TranslationTextComponent(Lib.CHAT_INFO+"tesla."+(lowPower?"lowPower": "highPower")));
+					markDirty();
+				}
+			}
 			else
 			{
-				lowPower = !lowPower;
-				ChatUtils.sendServerNoSpamMessages(player, new TranslationTextComponent(Lib.CHAT_INFO+"tesla."+(lowPower?"lowPower": "highPower")));
+				redstoneControlInverted = !redstoneControlInverted;
+				ChatUtils.sendServerNoSpamMessages(player, new TranslationTextComponent(Lib.CHAT_INFO+"rsControl."+(redstoneControlInverted?"invertedOn": "invertedOff")));
 				markDirty();
+				this.markContainingBlockForUpdate(null);
 			}
-		}
-		else
-		{
-			redstoneControlInverted = !redstoneControlInverted;
-			ChatUtils.sendServerNoSpamMessages(player, new TranslationTextComponent(Lib.CHAT_INFO+"rsControl."+(redstoneControlInverted?"invertedOn": "invertedOff")));
-			markDirty();
-			this.markContainingBlockForUpdate(null);
 		}
 		return true;
 	}
@@ -500,9 +503,9 @@ public class TeslaCoilTileEntity extends IEBaseTileEntity implements ITickableTi
 
 	@Nonnull
 	@Override
-	public SideConfig getEnergySideConfig(Direction facing)
+	public IOSideConfig getEnergySideConfig(Direction facing)
 	{
-		return !dummy?SideConfig.INPUT: SideConfig.NONE;
+		return !dummy?IOSideConfig.INPUT: IOSideConfig.NONE;
 	}
 
 	IEForgeEnergyWrapper[] wrappers = IEForgeEnergyWrapper.getDefaultWrapperArray(this);

@@ -95,6 +95,7 @@ public final class IEBlocks
 		public static Map<TreatedWoodStyles, Block> treatedStairs = new EnumMap<>(TreatedWoodStyles.class);
 		public static IEFenceBlock treatedFence;
 		public static Block treatedScaffolding;
+		public static Block treatedPost;
 	}
 
 	public static final class WoodenDevices
@@ -109,7 +110,7 @@ public final class IEBlocks
 		public static Block fluidSorter;
 		public static Block windmill;
 		public static Block watermill;
-		public static Block treatedPost;
+		//TODO move to deco?
 		public static Block treatedWallmount;
 	}
 
@@ -185,7 +186,7 @@ public final class IEBlocks
 		public static Block transformerHV;
 		public static Block breakerswitch;
 		public static Block redstoneBreaker;
-		public static Block energyMeter;
+		public static Block currentTransformer;
 		public static Block connectorRedstone;
 		public static Block connectorProbe;
 		public static Block feedthrough;

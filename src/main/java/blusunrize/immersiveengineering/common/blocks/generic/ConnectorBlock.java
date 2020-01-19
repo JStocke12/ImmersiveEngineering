@@ -8,12 +8,11 @@
 
 package blusunrize.immersiveengineering.common.blocks.generic;
 
-import blusunrize.immersiveengineering.api.IEProperties;
 import blusunrize.immersiveengineering.api.TargetingInfo;
-import blusunrize.immersiveengineering.api.energy.wires.Connection;
-import blusunrize.immersiveengineering.api.energy.wires.ConnectionPoint;
-import blusunrize.immersiveengineering.api.energy.wires.GlobalWireNetwork;
-import blusunrize.immersiveengineering.api.energy.wires.ImmersiveConnectableTileEntity;
+import blusunrize.immersiveengineering.api.wires.Connection;
+import blusunrize.immersiveengineering.api.wires.ConnectionPoint;
+import blusunrize.immersiveengineering.api.wires.GlobalWireNetwork;
+import blusunrize.immersiveengineering.api.wires.ImmersiveConnectableTileEntity;
 import blusunrize.immersiveengineering.common.blocks.BlockItemIE;
 import blusunrize.immersiveengineering.common.blocks.IETileProviderBlock;
 import blusunrize.immersiveengineering.common.blocks.metal.EnergyConnectorTileEntity;
@@ -30,26 +29,17 @@ import net.minecraft.util.math.BlockRayTraceResult;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.world.IBlockReader;
 import net.minecraft.world.World;
-import org.apache.commons.lang3.ArrayUtils;
 
 public abstract class ConnectorBlock extends IETileProviderBlock
 {
 
 	public ConnectorBlock(String name, IProperty... additional)
 	{
-		super(name, Block.Properties.create(Material.IRON).
-						hardnessAndResistance(3.0F, 15.0F),
-				BlockItemIE.class, ArrayUtils.add(additional, IEProperties.FACING_ALL));
+		super(name, Block.Properties.create(Material.IRON).hardnessAndResistance(3.0F, 15.0F),
+				BlockItemIE.class, additional);
 		lightOpacity = 0;
 		setBlockLayer(BlockRenderLayer.SOLID, BlockRenderLayer.TRANSLUCENT);
 		setNotNormalBlock();
-		/*setMetaBlockLayer(BlockTypes_Connector.CONNECTOR_PROBE.getMeta(), BlockRenderLayer.SOLID, BlockRenderLayer.CUTOUT, BlockRenderLayer.TRANSLUCENT);
-		setMetaBlockLayer(BlockTypes_Connector.FEEDTHROUGH.getMeta(), BlockRenderLayer.SOLID,
-				BlockRenderLayer.CUTOUT, BlockRenderLayer.CUTOUT_MIPPED, BlockRenderLayer.TRANSLUCENT);
-		setMetaMobilityFlag(BlockTypes_Connector.TRANSFORMER.getMeta(), EnumPushReaction.BLOCK);
-		setMetaMobilityFlag(BlockTypes_Connector.TRANSFORMER_HV.getMeta(), EnumPushReaction.BLOCK);
-		setMetaMobilityFlag(BlockTypes_Connector.ENERGY_METER.getMeta(), EnumPushReaction.BLOCK);
-		setMetaMobilityFlag(BlockTypes_Connector.FEEDTHROUGH.getMeta(), EnumPushReaction.BLOCK);*/
 	}
 
 		/*

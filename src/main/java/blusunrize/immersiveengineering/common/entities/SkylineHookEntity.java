@@ -11,7 +11,7 @@ package blusunrize.immersiveengineering.common.entities;
 import blusunrize.immersiveengineering.ImmersiveEngineering;
 import blusunrize.immersiveengineering.api.ApiUtils;
 import blusunrize.immersiveengineering.api.CapabilitySkyhookData.SkyhookUserData;
-import blusunrize.immersiveengineering.api.energy.wires.*;
+import blusunrize.immersiveengineering.api.wires.*;
 import blusunrize.immersiveengineering.common.items.IEItems.Misc;
 import blusunrize.immersiveengineering.common.network.MessageSkyhookSync;
 import blusunrize.immersiveengineering.common.util.SkylineHelper;
@@ -25,7 +25,6 @@ import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.IPacket;
-import net.minecraft.network.play.server.SSpawnObjectPacket;
 import net.minecraft.particles.ParticleTypes;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.Direction;
@@ -40,6 +39,7 @@ import net.minecraft.util.math.shapes.VoxelShapes;
 import net.minecraft.world.World;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.fml.network.NetworkHooks;
 import net.minecraftforge.fml.network.PacketDistributor;
 
 import javax.annotation.Nonnull;
@@ -54,7 +54,12 @@ public class SkylineHookEntity extends Entity
 			.<SkylineHookEntity>create(SkylineHookEntity::new, EntityClassification.MISC)
 			.size(.125F, .125F)
 			.build(ImmersiveEngineering.MODID+":skyline_hook");
-	
+
+	static
+	{
+		TYPE.setRegistryName(ImmersiveEngineering.MODID, "skyline_hook");
+	}
+
 	public static final double GRAVITY = 10;
 	private static final double MAX_SPEED = 2.5;
 	private static final double LIMIT_SPEED = .25;
@@ -197,7 +202,7 @@ public class SkylineHookEntity extends Entity
 				deltaVHor = -GRAVITY*Math.signum(connection.catData.getDeltaY());
 			else
 			{
-				double param = (linePos*connection.catData.getHorLength()-connection.catData.getOffsetX())/connection.catData.getA();
+				double param = (linePos*connection.catData.getHorLength()-connection.catData.getOffsetX())/connection.catData.getScale();
 				double pos = Math.exp(param);
 				double neg = 1/pos;
 				double cosh = (pos+neg)/2;
@@ -205,7 +210,7 @@ public class SkylineHookEntity extends Entity
 				//Formula taken from https://physics.stackexchange.com/a/83592 (x coordinate of the final vector),
 				//after plugging in the correct function
 				double vSquared = horizontalSpeed*horizontalSpeed*cosh*cosh*20*20;//cosh^2=1+sinh^2 and horSpeed*sinh=vertSpeed. 20 to convert from blocks/tick to block/s
-				deltaVHor = -sinh/(cosh*cosh)*(GRAVITY+vSquared/(connection.catData.getA()*cosh));
+				deltaVHor = -sinh/(cosh*cosh)*(GRAVITY+vSquared/(connection.catData.getScale()*cosh));
 			}
 			horizontalSpeed += deltaVHor/(20*20);// First 20 is because this happens in one tick rather than one second, second 20 is to convert units
 		}
@@ -480,7 +485,7 @@ public class SkylineHookEntity extends Entity
 	@Override
 	public IPacket<?> createSpawnPacket()
 	{
-		return new SSpawnObjectPacket(this);
+		return NetworkHooks.getEntitySpawningPacket(this);
 	}
 
 	private void handleDismount(Entity passenger)

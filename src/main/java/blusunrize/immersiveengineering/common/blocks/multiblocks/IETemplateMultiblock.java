@@ -8,6 +8,7 @@
 
 package blusunrize.immersiveengineering.common.blocks.multiblocks;
 
+import blusunrize.immersiveengineering.api.IEProperties;
 import blusunrize.immersiveengineering.api.multiblocks.TemplateMultiblock;
 import blusunrize.immersiveengineering.common.blocks.generic.MultiblockPartTileEntity;
 import blusunrize.immersiveengineering.common.util.IELogger;
@@ -44,7 +45,10 @@ public abstract class IETemplateMultiblock extends TemplateMultiblock
 	@Override
 	protected void replaceStructureBlock(BlockInfo info, World world, BlockPos actualPos, boolean mirrored, Direction clickDirection, Vec3i offsetFromMaster)
 	{
-		world.setBlockState(actualPos, baseState.get());
+		BlockState state = baseState.get();
+		if(!offsetFromMaster.equals(Vec3i.NULL_VECTOR))
+			state = state.with(IEProperties.MULTIBLOCKSLAVE, true);
+		world.setBlockState(actualPos, state);
 		TileEntity curr = world.getTileEntity(actualPos);
 		if(curr instanceof MultiblockPartTileEntity)
 		{
@@ -52,12 +56,39 @@ public abstract class IETemplateMultiblock extends TemplateMultiblock
 			tile.formed = true;
 			tile.offsetToMaster = new BlockPos(offsetFromMaster);
 			tile.posInMultiblock = info.pos;
-			tile.setMirrored(mirrored);
-			tile.setFacing(clickDirection.getOpposite());
+			if(state.getProperties().contains(IEProperties.MIRRORED))
+				tile.setMirrored(mirrored);
+			tile.setFacing(transformDirection(clickDirection.getOpposite()));
 			tile.markDirty();
 			world.addBlockEvent(actualPos, world.getBlockState(actualPos).getBlock(), 255, 0);
 		}
 		else
 			IELogger.logger.error("Expected MB TE at {} during placement", actualPos);
+	}
+
+	@Override
+	public void disassemble(World world, BlockPos origin, boolean mirrored, Direction clickDirectionAtCreation)
+	{
+		super.disassemble(world, origin, mirrored, clickDirectionAtCreation);
+	}
+
+	public Direction transformDirection(Direction original)
+	{
+		return original;
+	}
+
+	public Direction untransformDirection(Direction transformed)
+	{
+		return transformed;
+	}
+
+	@Override
+	protected void prepareBlockForDisassembly(World world, BlockPos pos)
+	{
+		TileEntity te = world.getTileEntity(pos);
+		if(te instanceof MultiblockPartTileEntity)
+			((MultiblockPartTileEntity)te).formed = false;
+		else
+			IELogger.logger.error("Expected multiblock TE at {}", pos);
 	}
 }

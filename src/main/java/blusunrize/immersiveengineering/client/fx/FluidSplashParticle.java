@@ -9,21 +9,30 @@
 package blusunrize.immersiveengineering.client.fx;
 
 import blusunrize.immersiveengineering.client.ClientUtils;
+import com.mojang.brigadier.StringReader;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.material.Material;
 import net.minecraft.client.particle.IParticleFactory;
 import net.minecraft.client.particle.IParticleRenderType;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.SpriteTexturedParticle;
-import net.minecraft.fluid.Fluids;
+import net.minecraft.client.renderer.texture.MissingTextureSprite;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.fluid.Fluid;
+import net.minecraft.network.PacketBuffer;
 import net.minecraft.particles.IParticleData;
+import net.minecraft.particles.IParticleData.IDeserializer;
+import net.minecraft.particles.ParticleType;
 import net.minecraft.util.Direction.Axis;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.registries.ForgeRegistries;
 
 import javax.annotation.Nullable;
 
@@ -33,13 +42,14 @@ import javax.annotation.Nullable;
 @OnlyIn(Dist.CLIENT)
 public class FluidSplashParticle extends SpriteTexturedParticle
 {
-	public FluidSplashParticle(World worldIn, double xCoordIn, double yCoordIn, double zCoordIn, double xSpeedIn, double ySpeedIn, double zSpeedIn)
+	public FluidSplashParticle(Fluid fluid, World worldIn, double xCoordIn, double yCoordIn, double zCoordIn,
+							   double xSpeedIn, double ySpeedIn, double zSpeedIn)
 	{
 		super(worldIn, xCoordIn, yCoordIn, zCoordIn, xSpeedIn, ySpeedIn, zSpeedIn);
 
-		this.motionX *= 0.30000001192092896D;
-		this.motionY = Math.random()*0.20000000298023224D+0.10000000149011612D;
-		this.motionZ *= 0.30000001192092896D;
+		this.motionX *= 0.3D;
+		this.motionY = Math.random()*0.2D+0.1D;
+		this.motionZ *= 0.3D;
 		this.particleRed = 1.0F;
 		this.particleGreen = 1.0F;
 		this.particleBlue = 1.0F;
@@ -47,7 +57,7 @@ public class FluidSplashParticle extends SpriteTexturedParticle
 		this.particleGravity = 0.06F;
 		this.maxAge = (int)(8.0D/(Math.random()*0.8D+0.2D));
 		this.particleScale = .375f;
-		this.setFluidTexture(new FluidStack(Fluids.WATER, 1000));
+		this.setFluidTexture(new FluidStack(fluid, 1000));
 	}
 
 	@Override
@@ -58,9 +68,9 @@ public class FluidSplashParticle extends SpriteTexturedParticle
 		this.prevPosZ = this.posZ;
 		this.motionY -= (double)this.particleGravity;
 		this.move(this.motionX, this.motionY, this.motionZ);
-		this.motionX *= 0.9800000190734863D;
-		this.motionY *= 0.9800000190734863D;
-		this.motionZ *= 0.9800000190734863D;
+		this.motionX *= 0.98;
+		this.motionY *= 0.98;
+		this.motionZ *= 0.98;
 
 		if(this.maxAge-- <= 0)
 			this.setExpired();
@@ -69,8 +79,8 @@ public class FluidSplashParticle extends SpriteTexturedParticle
 		{
 			if(Math.random() < 0.5D)
 				this.setExpired();
-			this.motionX *= 0.699999988079071D;
-			this.motionZ *= 0.699999988079071D;
+			this.motionX *= 0.7;
+			this.motionZ *= 0.7;
 		}
 
 		BlockPos blockpos = new BlockPos(this.posX, this.posY, this.posZ);
@@ -92,7 +102,10 @@ public class FluidSplashParticle extends SpriteTexturedParticle
 
 	public void setFluidTexture(FluidStack fluid)
 	{
-		setSprite(ClientUtils.getSprite(fluid.getFluid().getAttributes().getStill(fluid)));
+		TextureAtlasSprite sprite = ClientUtils.getSprite(fluid.getFluid().getAttributes().getStill(fluid));
+		if(sprite==null)
+			sprite = MissingTextureSprite.func_217790_a();
+		setSprite(sprite);
 		int argb = fluid.getFluid().getAttributes().getColor(fluid);
 		this.particleAlpha = ((argb >> 24)&255)/255f;
 		this.particleRed = ((argb >> 16)&255)/255f;
@@ -107,13 +120,63 @@ public class FluidSplashParticle extends SpriteTexturedParticle
 	}
 
 	@OnlyIn(Dist.CLIENT)
-	public static class Factory implements IParticleFactory
+	public static class Factory implements IParticleFactory<Data>
 	{
 		@Nullable
 		@Override
-		public Particle makeParticle(IParticleData typeIn, World worldIn, double x, double y, double z, double xSpeed, double ySpeed, double zSpeed)
+		public Particle makeParticle(Data typeIn, World worldIn, double x, double y, double z, double xSpeed, double ySpeed, double zSpeed)
 		{
-			return new FluidSplashParticle(worldIn, x, y, z, xSpeed, ySpeed, zSpeed);
+			return new FluidSplashParticle(typeIn.fluid, worldIn, x, y, z, xSpeed, ySpeed, zSpeed);
+		}
+	}
+
+	public static class Data implements IParticleData
+	{
+
+		private final Fluid fluid;
+
+		public Data(Fluid fluid)
+		{
+			this.fluid = fluid;
+		}
+
+		@Override
+		public ParticleType<?> getType()
+		{
+			return IEParticles.FLUID_SPLASH;
+		}
+
+		@Override
+		public void write(PacketBuffer buffer)
+		{
+			buffer.writeString(fluid.getRegistryName().toString());
+		}
+
+		@Override
+		public String getParameters()
+		{
+			return fluid.getRegistryName().toString();
+		}
+	}
+
+	public static class DataDeserializer implements IDeserializer<Data>
+	{
+
+		@Override
+		public Data deserialize(ParticleType<Data> particleTypeIn, StringReader reader) throws CommandSyntaxException
+		{
+			String name = reader.getString();
+			Fluid f = ForgeRegistries.FLUIDS.getValue(new ResourceLocation(name));
+			return new Data(f);
+		}
+
+		@Override
+		public Data read(ParticleType<Data> particleTypeIn, PacketBuffer buffer)
+		{
+			String name = buffer.readString();
+			Fluid f = ForgeRegistries.FLUIDS.getValue(new ResourceLocation(name));
+			return new Data(f);
+
 		}
 	}
 }

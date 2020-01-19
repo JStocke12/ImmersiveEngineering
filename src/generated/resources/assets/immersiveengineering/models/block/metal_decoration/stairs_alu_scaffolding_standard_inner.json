@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/inner_stairs",
+  "textures": {
+    "top": "immersiveengineering:block/metal_decoration/aluminum_scaffolding_top_standard",
+    "bottom": "immersiveengineering:block/metal_decoration/aluminum_scaffolding",
+    "side": "immersiveengineering:block/metal_decoration/aluminum_scaffolding"
+  }
+}

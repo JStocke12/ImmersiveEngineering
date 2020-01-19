@@ -8,14 +8,14 @@
 
 package blusunrize.immersiveengineering.common.blocks;
 
-import blusunrize.immersiveengineering.api.ApiUtils;
 import blusunrize.immersiveengineering.api.DimensionBlockPos;
 import blusunrize.immersiveengineering.api.IEProperties;
-import blusunrize.immersiveengineering.api.energy.wires.Connection;
-import blusunrize.immersiveengineering.api.energy.wires.ConnectionPoint;
-import blusunrize.immersiveengineering.api.energy.wires.IImmersiveConnectable;
+import blusunrize.immersiveengineering.api.wires.Connection;
+import blusunrize.immersiveengineering.api.wires.ConnectionPoint;
+import blusunrize.immersiveengineering.api.wires.IImmersiveConnectable;
 import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.*;
 import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IDirectionalTile.PlacementLimitation;
+import blusunrize.immersiveengineering.common.blocks.generic.MultiblockPartTileEntity;
 import blusunrize.immersiveengineering.common.util.Utils;
 import blusunrize.immersiveengineering.common.util.inventory.IEInventoryHandler;
 import blusunrize.immersiveengineering.common.util.inventory.IIEInventory;
@@ -42,9 +42,7 @@ import net.minecraft.util.math.shapes.VoxelShape;
 import net.minecraft.util.math.shapes.VoxelShapes;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.IBlockReader;
-import net.minecraft.world.IEnviromentBlockReader;
 import net.minecraft.world.World;
-import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.storage.loot.LootContext;
 import net.minecraft.world.storage.loot.LootParameterSets;
 import net.minecraft.world.storage.loot.LootParameters;
@@ -63,7 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import static blusunrize.immersiveengineering.api.energy.wires.GlobalWireNetwork.getNetwork;
+import static blusunrize.immersiveengineering.api.wires.GlobalWireNetwork.getNetwork;
 
 @Mod.EventBusSubscriber
 public abstract class IETileProviderBlock extends IEBaseBlock implements IColouredBlock
@@ -110,7 +108,7 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 		if(state.getBlock()!=newState.getBlock())
 		{
 			if(tile instanceof IEBaseTileEntity)
-				((IEBaseTileEntity)tile).setCachedState(state);
+				((IEBaseTileEntity)tile).setOverrideState(state);
 			if(tile instanceof IHasDummyBlocks)
 				((IHasDummyBlocks)tile).breakDummies(pos, state);
 			Consumer<Connection> dropHandler;
@@ -128,7 +126,7 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 			else
 				dropHandler = c -> {
 				};
-			if(tile!=null&&(!(tile instanceof ITileDrop)||!((ITileDrop)tile).preventInventoryDrop()))
+			if(tile!=null&&(!(tile instanceof ITileDrop)||!((ITileDrop)tile).preventInventoryDrop())&&!(tile instanceof MultiblockPartTileEntity))
 			{
 				if(tile instanceof IIEInventory&&((IIEInventory)tile).getDroppedItems()!=null)
 					InventoryHelper.dropItems(world, pos, ((IIEInventory)tile).getDroppedItems());
@@ -245,43 +243,6 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 		return false;
 	}*/
 
-	/*TODO when extended states are a thing again...
-	@Override
-	public IBlockState getExtendedState(IBlockState state, IBlockReader world, BlockPos pos)
-	{
-		state = super.getExtendedState(state, world, pos);
-		if(state instanceof IExtendedBlockState)
-		{
-			IExtendedBlockState extended = (IExtendedBlockState)state;
-			TileEntity te = world.getTileEntity(pos);
-			if(te!=null)
-			{
-				if(te instanceof IConfigurableSides)
-					for(int i = 0; i < 6; i++)
-						if(extended.getUnlistedNames().contains(IEProperties.SIDECONFIG[i]))
-							extended = extended.with(IEProperties.SIDECONFIG[i], ((IConfigurableSides)te).getSideConfig(i));
-				if(te instanceof IAdvancedHasObjProperty)
-					extended = extended.with(Properties.AnimationProperty, ((IAdvancedHasObjProperty)te).getOBJState());
-				else if(te instanceof IHasObjProperty)
-					extended = extended.with(Properties.AnimationProperty, new OBJState(((IHasObjProperty)te).compileDisplayList(), true));
-				if(te instanceof IDynamicTexture)
-					extended = extended.with(IEProperties.OBJ_TEXTURE_REMAP, ((IDynamicTexture)te).getTextureReplacements());
-				if(te instanceof IOBJModelCallback)
-					extended = extended.with(IOBJModelCallback.PROPERTY, (IOBJModelCallback)te);
-				if(te.hasCapability(CapabilityShader.SHADER_CAPABILITY, null))
-					extended = extended.with(CapabilityShader.BLOCKSTATE_PROPERTY, te.getCapability(CapabilityShader.SHADER_CAPABILITY, null));
-				if(te instanceof IPropertyPassthrough&&((IExtendedBlockState)state).getUnlistedNames().contains(IEProperties.TILEENTITY_PASSTHROUGH))
-					extended = extended.with(IEProperties.TILEENTITY_PASSTHROUGH, te);
-				if(te instanceof ImmersiveConnectableTileEntity&&((IExtendedBlockState)state).getUnlistedNames().contains(IEProperties.CONNECTIONS))
-					extended = extended.with(IEProperties.CONNECTIONS, ((ImmersiveConnectableTileEntity)te).genConnBlockstate());
-			}
-			state = extended;
-		}
-
-		return state;
-	}
-	 */
-
 	@Override
 	public void onIEBlockPlacedBy(BlockItemUseContext context, BlockState state)
 	{
@@ -317,12 +278,25 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 	}
 
 	@Override
+	public boolean hammerUseSide(Direction side, PlayerEntity player, World w, BlockPos pos, BlockRayTraceResult hit)
+	{
+		TileEntity tile = w.getTileEntity(pos);
+		if(tile instanceof IHammerInteraction)
+		{
+			boolean b = ((IHammerInteraction)tile).hammerUseSide(side, player, hit.getHitVec());
+			if(b)
+				return true;
+		}
+		return super.hammerUseSide(side, player, w, pos, hit);
+	}
+
+	@Override
 	public boolean onBlockActivated(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockRayTraceResult hit)
 	{
 		final Direction side = hit.getFace();
-		final float hitX = (float)hit.getHitVec().x;
-		final float hitY = (float)hit.getHitVec().y;
-		final float hitZ = (float)hit.getHitVec().z;
+		final float hitX = (float)hit.getHitVec().x-pos.getX();
+		final float hitY = (float)hit.getHitVec().y-pos.getY();
+		final float hitZ = (float)hit.getHitVec().z-pos.getZ();
 		ItemStack heldItem = player.getHeldItem(hand);
 		TileEntity tile = world.getTileEntity(pos);
 		if(tile instanceof IDirectionalTile&&Utils.isHammer(heldItem)&&((IDirectionalTile)tile).canHammerRotate(side, hitX, hitY, hitZ, player)&&!world.isRemote)
@@ -352,12 +326,6 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 			world.addBlockEvent(tile.getPos(), tile.getBlockState().getBlock(), 255, 0);
 			return true;
 		}
-		if(tile instanceof IHammerInteraction&&Utils.isHammer(heldItem)&&!world.isRemote)
-		{
-			boolean b = ((IHammerInteraction)tile).hammerUseSide(side, player, hitX, hitY, hitZ);
-			if(b)
-				return b;
-		}
 		if(tile instanceof IPlayerInteraction)
 		{
 			boolean b = ((IPlayerInteraction)tile).interact(side, player, hand, heldItem, hitX, hitY, hitZ);
@@ -367,12 +335,12 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 		if(tile instanceof IInteractionObjectIE&&hand==Hand.MAIN_HAND&&!player.isSneaking())
 		{
 			IInteractionObjectIE interaction = (IInteractionObjectIE)tile;
-			IInteractionObjectIE master = interaction.getGuiMaster();
-			if(!world.isRemote&&master!=null)
-				NetworkHooks.openGui((ServerPlayerEntity)player, master, pos);//TODO pos or masterpos?
+			interaction = interaction.getGuiMaster();
+			if(interaction!=null&&interaction.canUseGui(player)&&!world.isRemote)
+				NetworkHooks.openGui((ServerPlayerEntity)player, interaction, ((TileEntity)interaction).getPos());
 			return true;
 		}
-		return false;
+		return super.onBlockActivated(state, world, pos, player, hand, hit);
 	}
 
 	@Override
@@ -381,28 +349,10 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 	{
 		if(!world.isRemote)
 		{
-			//Necessary to prevent ghostloading, see conversation in #immersive-engineering on Discord on 12/13 Mar 2019
-			Chunk posChunk = world.getChunkAt(pos);
-			//TODO figure out why this became a "future task"...
-			ApiUtils.addFutureServerTask(world, () ->
-			{
-				if(world.isBlockLoaded(pos))//TODO where did this go? &&!posChunk.unloadQueued)
-				{
-					TileEntity tile = world.getTileEntity(pos);
-					if(tile instanceof INeighbourChangeTile&&!tile.getWorld().isRemote)
-						((INeighbourChangeTile)tile).onNeighborBlockChange(fromPos);
-				}
-			});
+			TileEntity tile = world.getTileEntity(pos);
+			if(tile instanceof INeighbourChangeTile&&!tile.getWorld().isRemote)
+				((INeighbourChangeTile)tile).onNeighborBlockChange(fromPos);
 		}
-	}
-
-	@Override
-	public int getLightValue(BlockState state, IEnviromentBlockReader world, BlockPos pos)
-	{
-		TileEntity te = world.getTileEntity(pos);
-		if(te instanceof ILightValue)
-			return ((ILightValue)te).getLightValue();
-		return 0;
 	}
 
 	public IETileProviderBlock setHasColours()
@@ -434,12 +384,12 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 	public VoxelShape getShape(BlockState state, IBlockReader world, BlockPos pos, ISelectionContext context)
 	{
 		//TODO caching?
-		if(world.getBlockState(pos).getBlock()==this)
+		if(state.getBlock()==this)
 		{
 			TileEntity te = world.getTileEntity(pos);
 			if(te instanceof IAdvancedCollisionBounds)
 			{
-				List<AxisAlignedBB> bounds = ((IAdvancedCollisionBounds)te).getAdvancedColisionBounds();
+				List<AxisAlignedBB> bounds = ((IAdvancedCollisionBounds)te).getAdvancedCollisionBounds();
 				if(bounds!=null&&!bounds.isEmpty())
 				{
 					VoxelShape ret = VoxelShapes.empty();
@@ -460,6 +410,28 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 			}
 		}
 		return super.getShape(state, world, pos, context);
+	}
+
+	@Override
+	public VoxelShape getRaytraceShape(BlockState state, IBlockReader world, BlockPos pos)
+	{
+		if(world.getBlockState(pos).getBlock()==this)
+		{
+			TileEntity te = world.getTileEntity(pos);
+			if(te instanceof IAdvancedSelectionBounds)
+			{
+				List<AxisAlignedBB> bounds = ((IAdvancedSelectionBounds)te).getAdvancedSelectionBounds();
+				if(bounds!=null&&!bounds.isEmpty())
+				{
+					VoxelShape ret = VoxelShapes.empty();
+					for(AxisAlignedBB aabb : bounds)
+						if(aabb!=null)
+							ret = VoxelShapes.combineAndSimplify(ret, VoxelShapes.create(aabb), IBooleanFunction.OR);
+					return ret;
+				}
+			}
+		}
+		return super.getRaytraceShape(state, world, pos);
 	}
 
 	@Nullable

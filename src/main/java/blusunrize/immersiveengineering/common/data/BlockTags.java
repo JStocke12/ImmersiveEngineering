@@ -13,7 +13,9 @@ import blusunrize.immersiveengineering.api.IETags.MetalTags;
 import blusunrize.immersiveengineering.common.blocks.EnumMetals;
 import blusunrize.immersiveengineering.common.blocks.IEBlocks;
 import blusunrize.immersiveengineering.common.blocks.IEBlocks.MetalDecoration;
+import blusunrize.immersiveengineering.common.blocks.IEBlocks.StoneDecoration;
 import blusunrize.immersiveengineering.common.blocks.IEBlocks.WoodenDecoration;
+import blusunrize.immersiveengineering.common.blocks.wooden.TreatedWoodStyles;
 import net.minecraft.block.Block;
 import net.minecraft.data.BlockTagsProvider;
 import net.minecraft.data.DataGenerator;
@@ -36,9 +38,10 @@ class BlockTags extends BlockTagsProvider
 		getBuilder(net.minecraft.tags.BlockTags.WOODEN_FENCES)
 				.add(WoodenDecoration.treatedFence);
 		for(EnumMetals metal : EnumMetals.values())
+		{
+			MetalTags tags = IETags.getTagsFor(metal);
 			if(!metal.isVanillaMetal())
 			{
-				MetalTags tags = IETags.getTagsFor(metal);
 				Block storage = IEBlocks.Metals.storage.get(metal);
 				getBuilder(tags.storage).add(storage);
 				if(metal.shouldAddOre())
@@ -48,5 +51,15 @@ class BlockTags extends BlockTagsProvider
 					getBuilder(tags.ore).add(ore);
 				}
 			}
+			Block sheetmetal = IEBlocks.Metals.sheetmetal.get(metal);
+			getBuilder(tags.sheetmetal).add(sheetmetal);
+		}
+		for(TreatedWoodStyles style : TreatedWoodStyles.values())
+		{
+			getBuilder(IETags.treatedWood).add(WoodenDecoration.treatedWood.get(style));
+			getBuilder(IETags.treatedWoodSlab).add(IEBlocks.toSlab.get(IEBlocks.WoodenDecoration.treatedWood.get(style)));
+		}
+		getBuilder(IETags.coalCokeBlock)
+				.add(StoneDecoration.coke);
 	}
 }

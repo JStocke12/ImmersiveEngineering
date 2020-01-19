@@ -8,10 +8,10 @@
 
 package blusunrize.immersiveengineering.api.multiblocks;
 
+import blusunrize.immersiveengineering.ImmersiveEngineering;
 import blusunrize.immersiveengineering.api.crafting.IngredientStack;
-import blusunrize.immersiveengineering.common.blocks.generic.MultiblockPartTileEntity;
+import blusunrize.immersiveengineering.api.multiblocks.BlockMatcher.Result;
 import blusunrize.immersiveengineering.common.blocks.multiblocks.StaticTemplateManager;
-import blusunrize.immersiveengineering.common.util.IELogger;
 import blusunrize.immersiveengineering.common.util.Utils;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -19,11 +19,9 @@ import com.google.common.collect.ImmutableMap;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
-import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tags.Tag;
-import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.Direction;
 import net.minecraft.util.Direction.Axis;
 import net.minecraft.util.Mirror;
@@ -44,18 +42,26 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-//TODO rotaion of blocks?
 public abstract class TemplateMultiblock implements MultiblockHandler.IMultiblock
 {
 	private final ResourceLocation loc;
 	private final BlockPos masterFromOrigin;
 	public final BlockPos triggerFromOrigin;
-	private final Map<Block, Tag<Block>> tags;
+	private final List<BlockMatcher.MatcherPredicate> additionalPredicates;
 	@Nullable
 	private Template template;
 	@Nullable
 	private IngredientStack[] materials;
 	private BlockState trigger = Blocks.AIR.getDefaultState();
+
+	public TemplateMultiblock(ResourceLocation loc, BlockPos masterFromOrigin, BlockPos triggerFromOrigin,
+							  List<BlockMatcher.MatcherPredicate> additionalPredicates)
+	{
+		this.loc = loc;
+		this.masterFromOrigin = masterFromOrigin;
+		this.triggerFromOrigin = triggerFromOrigin;
+		this.additionalPredicates = additionalPredicates;
+	}
 
 	public TemplateMultiblock(ResourceLocation loc, BlockPos masterFromOrigin, BlockPos triggerFromOrigin)
 	{
@@ -64,10 +70,20 @@ public abstract class TemplateMultiblock implements MultiblockHandler.IMultibloc
 
 	public TemplateMultiblock(ResourceLocation loc, BlockPos masterFromOrigin, BlockPos triggerFromOrigin, Map<Block, Tag<Block>> tags)
 	{
-		this.loc = loc;
-		this.masterFromOrigin = masterFromOrigin;
-		this.triggerFromOrigin = triggerFromOrigin;
-		this.tags = tags;
+		this(loc, masterFromOrigin, triggerFromOrigin, ImmutableList.of(
+				(expected, found, world, pos) -> {
+					Tag<Block> tag = tags.get(expected.getBlock());
+					if(tag!=null)
+					{
+						if(found.isIn(tag))
+							return Result.allow(2);
+						else
+							return Result.deny(2);
+					}
+					else
+						return Result.DEFAULT;
+				}
+		));
 	}
 
 	@Nonnull
@@ -99,26 +115,22 @@ public abstract class TemplateMultiblock implements MultiblockHandler.IMultibloc
 		return template;
 	}
 
-	//TODO make all of these non-final (currently final to make porting easier)
-
 	@Override
-	public final ResourceLocation getUniqueName()
+	public ResourceLocation getUniqueName()
 	{
 		return loc;
 	}
 
 	@Override
-	public final boolean isBlockTrigger(BlockState state)
+	public boolean isBlockTrigger(BlockState state)
 	{
 		getTemplate();
-		//TODO facing dependant
 		return state.getBlock()==trigger.getBlock();
 	}
 
-	private static final List<Mirror> MIRROR_STATES = ImmutableList.of(Mirror.NONE, Mirror.FRONT_BACK);
 
 	@Override
-	public final boolean createStructure(World world, BlockPos pos, Direction side, PlayerEntity player)
+	public boolean createStructure(World world, BlockPos pos, Direction side, PlayerEntity player)
 	{
 		if(side.getAxis()==Axis.Y)
 			side = Direction.fromAngle(player.rotationYaw);
@@ -126,8 +138,13 @@ public abstract class TemplateMultiblock implements MultiblockHandler.IMultibloc
 		if(rot==null)
 			return false;
 		Template template = getTemplate();
+		List<Mirror> mirrorStates;
+		if(canBeMirrored())
+			mirrorStates = ImmutableList.of(Mirror.NONE, Mirror.FRONT_BACK);
+		else
+			mirrorStates = ImmutableList.of(Mirror.NONE);
 		mirrorLoop:
-		for(Mirror mirror : MIRROR_STATES)
+		for(Mirror mirror : mirrorStates)
 		{
 			PlacementSettings placeSet = new PlacementSettings().setMirror(mirror).setRotation(rot);
 			BlockPos origin = pos.subtract(Template.transformedBlockPos(placeSet, triggerFromOrigin));
@@ -137,14 +154,8 @@ public abstract class TemplateMultiblock implements MultiblockHandler.IMultibloc
 				BlockPos here = origin.add(realRelPos);
 
 				BlockState expected = info.state.mirror(mirror).rotate(rot);
-
 				BlockState inWorld = world.getBlockState(here);
-				boolean valid;
-				if(tags.containsKey(expected.getBlock()))
-					valid = inWorld.getBlock().isIn(tags.get(expected.getBlock()));
-				else
-					valid = inWorld==expected;
-				if(!valid)
+				if(!BlockMatcher.matches(expected, inWorld, world, here, additionalPredicates).isAllow())
 					continue mirrorLoop;
 			}
 			form(world, origin, rot, mirror, side);
@@ -167,13 +178,13 @@ public abstract class TemplateMultiblock implements MultiblockHandler.IMultibloc
 	protected abstract void replaceStructureBlock(BlockInfo info, World world, BlockPos actualPos, boolean mirrored, Direction clickDirection, Vec3i offsetFromMaster);
 
 	@Override
-	public final List<BlockInfo> getStructure()
+	public List<BlockInfo> getStructure()
 	{
 		return getTemplate().blocks.get(0);
 	}
 
 	@Override
-	public final Vec3i getSize()
+	public Vec3i getSize()
 	{
 		return getTemplate().getSize();
 	}
@@ -201,7 +212,7 @@ public abstract class TemplateMultiblock implements MultiblockHandler.IMultibloc
 	}
 
 	@Override
-	public final IngredientStack[] getTotalMaterials()
+	public IngredientStack[] getTotalMaterials()
 	{
 		if(materials==null)
 		{
@@ -210,7 +221,7 @@ public abstract class TemplateMultiblock implements MultiblockHandler.IMultibloc
 			RayTraceResult rtr = new BlockRayTraceResult(Vec3d.ZERO, Direction.DOWN, BlockPos.ZERO, false);
 			for(BlockInfo info : structure)
 			{
-				ItemStack picked = Utils.getPickBlock(info.state, rtr, Minecraft.getInstance().player);
+				ItemStack picked = Utils.getPickBlock(info.state, rtr, ImmersiveEngineering.proxy.getClientPlayer());
 				boolean added = false;
 				for(IngredientStack existing : ret)
 					if(existing.matchesItemStackIgnoringSize(picked))
@@ -228,7 +239,7 @@ public abstract class TemplateMultiblock implements MultiblockHandler.IMultibloc
 	}
 
 	@Override
-	public final void disassemble(World world, BlockPos origin, boolean mirrored, Direction clickDirectionAtCreation)
+	public void disassemble(World world, BlockPos origin, boolean mirrored, Direction clickDirectionAtCreation)
 	{
 		Mirror mirror = mirrored?Mirror.FRONT_BACK: Mirror.NONE;
 		Rotation rot = Utils.getRotationBetweenFacings(Direction.NORTH, clickDirectionAtCreation);
@@ -243,11 +254,6 @@ public abstract class TemplateMultiblock implements MultiblockHandler.IMultibloc
 
 	protected void prepareBlockForDisassembly(World world, BlockPos pos)
 	{
-		TileEntity te = world.getTileEntity(pos);
-		if(te instanceof MultiblockPartTileEntity)
-			((MultiblockPartTileEntity)te).formed = false;
-		else
-			IELogger.logger.error("Expected multiblock TE at {}", pos);
 	}
 
 	@Override
@@ -255,4 +261,10 @@ public abstract class TemplateMultiblock implements MultiblockHandler.IMultibloc
 	{
 		return triggerFromOrigin;
 	}
+
+	public boolean canBeMirrored()
+	{
+		return true;
+	}
+
 }

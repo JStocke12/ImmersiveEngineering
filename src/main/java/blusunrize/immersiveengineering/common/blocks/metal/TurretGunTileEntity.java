@@ -9,13 +9,12 @@
 package blusunrize.immersiveengineering.common.blocks.metal;
 
 import blusunrize.immersiveengineering.ImmersiveEngineering;
-import blusunrize.immersiveengineering.api.tool.BulletHandler;
 import blusunrize.immersiveengineering.api.tool.BulletHandler.IBullet;
 import blusunrize.immersiveengineering.common.IEConfig;
 import blusunrize.immersiveengineering.common.entities.RevolvershotEntity;
+import blusunrize.immersiveengineering.common.items.BulletItem;
 import blusunrize.immersiveengineering.common.network.MessageTileSync;
 import blusunrize.immersiveengineering.common.util.IESounds;
-import blusunrize.immersiveengineering.common.util.ItemNBTHelper;
 import blusunrize.immersiveengineering.common.util.Utils;
 import blusunrize.immersiveengineering.common.util.inventory.IEInventoryHandler;
 import net.minecraft.entity.Entity;
@@ -90,8 +89,7 @@ public class TurretGunTileEntity extends TurretTileEntity
 		ItemStack bulletStack = inventory.get(0);
 		if(!bulletStack.isEmpty()&&this.energyStorage.extractEnergy(energy, true)==energy)
 		{
-			String key = ItemNBTHelper.getString(bulletStack, "bullet");
-			IBullet bullet = BulletHandler.getBullet(key);
+			IBullet bullet = ((BulletItem)bulletStack.getItem()).getType();
 			if(bullet!=null&&bullet.isValidForTurret())
 			{
 				ItemStack casing = bullet.getCasing(bulletStack);
@@ -180,7 +178,7 @@ public class TurretGunTileEntity extends TurretTileEntity
 	@Override
 	public void tick()
 	{
-		if(world.isRemote&&!dummy&&cycleRender > 0)
+		if(world.isRemote&&!isDummy()&&cycleRender > 0)
 			cycleRender--;
 		super.tick();
 	}
@@ -226,7 +224,7 @@ public class TurretGunTileEntity extends TurretTileEntity
 	@Override
 	public <T> LazyOptional<T> getCapability(@Nonnull Capability<T> capability, @Nullable Direction facing)
 	{
-		if(!dummy&&capability==CapabilityItemHandler.ITEM_HANDLER_CAPABILITY&&(facing==null||facing==Direction.DOWN||facing==this.getFacing().getOpposite()))
+		if(!isDummy()&&capability==CapabilityItemHandler.ITEM_HANDLER_CAPABILITY&&(facing==null||facing==Direction.DOWN||facing==this.getFacing().getOpposite()))
 			return itemHandler.cast();
 		return super.getCapability(capability, facing);
 	}

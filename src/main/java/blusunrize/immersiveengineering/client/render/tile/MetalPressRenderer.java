@@ -8,7 +8,7 @@
 
 package blusunrize.immersiveengineering.client.render.tile;
 
-import blusunrize.immersiveengineering.api.IEProperties;
+import blusunrize.immersiveengineering.ImmersiveEngineering;
 import blusunrize.immersiveengineering.api.crafting.MetalPressRecipe;
 import blusunrize.immersiveengineering.client.ClientUtils;
 import blusunrize.immersiveengineering.common.blocks.IEBlocks.Multiblocks;
@@ -16,7 +16,6 @@ import blusunrize.immersiveengineering.common.blocks.generic.PoweredMultiblockTi
 import blusunrize.immersiveengineering.common.blocks.generic.PoweredMultiblockTileEntity.MultiblockProcess;
 import blusunrize.immersiveengineering.common.blocks.generic.PoweredMultiblockTileEntity.MultiblockProcessInWorld;
 import blusunrize.immersiveengineering.common.blocks.metal.MetalPressTileEntity;
-import blusunrize.immersiveengineering.common.util.Utils;
 import com.mojang.blaze3d.platform.GlStateManager;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.Minecraft;
@@ -30,6 +29,7 @@ import net.minecraft.client.renderer.tileentity.TileEntityRenderer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Direction;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.client.model.data.EmptyModelData;
 import org.lwjgl.opengl.GL11;
@@ -38,6 +38,11 @@ import java.util.List;
 
 public class MetalPressRenderer extends TileEntityRenderer<MetalPressTileEntity>
 {
+	private final DynamicModel<Void> piston = DynamicModel.createSimple(
+			new ResourceLocation(ImmersiveEngineering.MODID, "block/metal_multiblock/metal_press_piston.obj"),
+			"metal_press_piston"
+	);
+
 	@Override
 	public void render(MetalPressTileEntity te, double x, double y, double z, float partialTicks, int destroyStage)
 	{
@@ -49,8 +54,7 @@ public class MetalPressRenderer extends TileEntityRenderer<MetalPressTileEntity>
 		BlockState state = getWorld().getBlockState(blockPos);
 		if(state.getBlock()!=Multiblocks.metalPress)
 			return;
-		state = state.with(IEProperties.DYNAMICRENDER, true);
-		IBakedModel model = blockRenderer.getBlockModelShapes().getModel(state);
+		IBakedModel model = piston.get(null);
 
 		Tessellator tessellator = Tessellator.getInstance();
 		BufferBuilder worldRenderer = tessellator.getBuffer();
@@ -100,7 +104,7 @@ public class MetalPressRenderer extends TileEntityRenderer<MetalPressTileEntity>
 		worldRenderer.setTranslation(-.5-blockPos.getX(), -.5-blockPos.getY(), -.5-blockPos.getZ());
 		worldRenderer.color(255, 255, 255, 255);
 		blockRenderer.getBlockModelRenderer().renderModel(te.getWorldNonnull(), model, state, blockPos, worldRenderer, true,
-				Utils.RAND, 0, EmptyModelData.INSTANCE);
+				getWorld().rand, 0, EmptyModelData.INSTANCE);
 		worldRenderer.setTranslation(0.0D, 0.0D, 0.0D);
 		tessellator.draw();
 		RenderHelper.enableStandardItemLighting();

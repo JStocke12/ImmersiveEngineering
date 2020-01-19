@@ -8,9 +8,13 @@
 
 package blusunrize.immersiveengineering.common.blocks;
 
+import blusunrize.immersiveengineering.api.IEProperties.Model;
+import blusunrize.immersiveengineering.client.utils.CombinedModelData;
+import blusunrize.immersiveengineering.client.utils.SinglePropertyModelData;
 import blusunrize.immersiveengineering.common.IEConfig;
 import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.BlockstateProvider;
 import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IDirectionalTile;
+import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IPropertyPassthrough;
 import blusunrize.immersiveengineering.common.util.EnergyHelper;
 import blusunrize.immersiveengineering.common.util.EnergyHelper.IEForgeEnergyWrapper;
 import net.minecraft.block.BlockState;
@@ -25,6 +29,7 @@ import net.minecraft.util.Mirror;
 import net.minecraft.util.Rotation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
+import net.minecraftforge.client.model.data.IModelData;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.common.util.NonNullSupplier;
@@ -37,6 +42,7 @@ import java.util.*;
 
 public abstract class IEBaseTileEntity extends TileEntity implements BlockstateProvider
 {
+	private BlockState overrideBlockState = null;
 	public IEBaseTileEntity(TileEntityType<? extends TileEntity> type)
 	{
 		super(type);
@@ -241,14 +247,34 @@ public abstract class IEBaseTileEntity extends TileEntity implements BlockstateP
 
 	protected void checkLight(BlockPos pos)
 	{
-		getWorldNonnull().getProfiler().startSection("queueCheckLight");
-		getWorldNonnull().getChunkProvider().getLightManager().checkBlock(pos);
-		getWorldNonnull().getProfiler().endSection();
+		getWorldNonnull().getPendingBlockTicks().scheduleTick(pos, getBlockState().getBlock(), 4);
 	}
 
-	public void setCachedState(BlockState state)
+	public void setOverrideState(BlockState state)
 	{
-		cachedBlockState = state;
+		overrideBlockState = state;
+	}
+
+	@Override
+	public BlockState getBlockState()
+	{
+		if(overrideBlockState!=null)
+			return overrideBlockState;
+		else
+			return super.getBlockState();
+	}
+
+	@Override
+	public void updateContainingBlockInfo()
+	{
+		BlockState old = getBlockState();
+		super.updateContainingBlockInfo();
+		BlockState newState = getBlockState();
+		if(old!=null&&
+				newState!=null&&
+				getType().isValidBlock(old.getBlock())&&
+				!getType().isValidBlock(newState.getBlock()))
+			setOverrideState(old);
 	}
 
 	@Override
@@ -261,5 +287,16 @@ public abstract class IEBaseTileEntity extends TileEntity implements BlockstateP
 	public BlockState getState()
 	{
 		return getBlockState();
+	}
+
+	@Nonnull
+	@Override
+	public IModelData getModelData()
+	{
+		IModelData base = super.getModelData();
+		if(this instanceof IPropertyPassthrough)
+			return new CombinedModelData(base, new SinglePropertyModelData<>(this, Model.TILEENTITY_PASSTHROUGH));
+		else
+			return base;
 	}
 }

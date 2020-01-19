@@ -12,6 +12,7 @@ import blusunrize.immersiveengineering.common.data.blockstate.BlockstateGenerato
 import com.google.common.base.Preconditions;
 import com.google.gson.JsonObject;
 import net.minecraft.data.DirectoryCache;
+import net.minecraft.resources.ResourcePackType;
 import net.minecraft.util.ResourceLocation;
 
 import java.nio.file.Path;
@@ -38,6 +39,21 @@ public abstract class ModelFile
 		return location;
 	}
 
+	public static class UncheckedModelFile extends ModelFile
+	{
+
+		public UncheckedModelFile(ResourceLocation location)
+		{
+			super(location);
+		}
+
+		@Override
+		protected boolean exists()
+		{
+			return true;
+		}
+	}
+
 	public static class ExistingModelFile extends ModelFile
 	{
 
@@ -49,7 +65,12 @@ public abstract class ModelFile
 		@Override
 		protected boolean exists()
 		{
-			//TODO proper check for non-generated model file
+			if(ModelHelper.EXISTING_FILE_HELPER!=null)
+			{
+				String suffix = getUncheckedLocation().getPath().contains(".")?"": ".json";
+				return ModelHelper.EXISTING_FILE_HELPER.exists(getUncheckedLocation(),
+						ResourcePackType.CLIENT_RESOURCES, suffix, "models");
+			}
 			return true;
 		}
 	}
@@ -82,6 +103,13 @@ public abstract class ModelFile
 		public GeneratedModelFile withLoc(ResourceLocation loc)
 		{
 			return new GeneratedModelFile(loc, model);
+		}
+
+		public GeneratedModelFile createChild(ResourceLocation loc)
+		{
+			JsonObject childModel = new JsonObject();
+			childModel.addProperty("parent", this.location.toString());
+			return new GeneratedModelFile(loc, childModel);
 		}
 	}
 }

@@ -19,6 +19,7 @@ import blusunrize.immersiveengineering.common.items.IEItems.Ingredients;
 import blusunrize.immersiveengineering.common.util.ItemNBTHelper;
 import blusunrize.immersiveengineering.common.util.Utils;
 import com.google.common.collect.ImmutableList;
+import net.minecraft.block.BlockState;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
@@ -137,7 +138,6 @@ public class WindmillTileEntity extends IEBaseTileEntity implements ITickableTil
 	@Override
 	public void readCustomNBT(CompoundNBT nbt, boolean descPacket)
 	{
-		setFacing(Direction.byIndex(nbt.getInt("facing")));
 		sails = nbt.getInt("sails");
 		//prevRotation = nbt.getFloat("prevRotation");
 		rotation = nbt.getFloat("rotation");
@@ -147,7 +147,6 @@ public class WindmillTileEntity extends IEBaseTileEntity implements ITickableTil
 	@Override
 	public void writeCustomNBT(CompoundNBT nbt, boolean descPacket)
 	{
-		nbt.putInt("facing", getFacing().ordinal());
 		nbt.putInt("sails", sails);
 		//nbt.putFloat("prevRotation", prevRotation);
 		nbt.putFloat("rotation", rotation);
@@ -181,7 +180,7 @@ public class WindmillTileEntity extends IEBaseTileEntity implements ITickableTil
 	@Override
 	public boolean mirrorFacingOnPlacement(LivingEntity placer)
 	{
-		return false;
+		return true;
 	}
 
 	@Override
@@ -199,7 +198,7 @@ public class WindmillTileEntity extends IEBaseTileEntity implements ITickableTil
 	static ArrayList<String> emptyDisplayList = new ArrayList();
 
 	@Override
-	public ArrayList<String> compileDisplayList()
+	public List<String> compileDisplayList(BlockState state)
 	{
 		return emptyDisplayList;
 	}
@@ -210,7 +209,8 @@ public class WindmillTileEntity extends IEBaseTileEntity implements ITickableTil
 		if(sails < 8&&heldItem.getItem()==Ingredients.windmillSail)
 		{
 			this.sails++;
-			heldItem.shrink(1);
+			if(!player.abilities.isCreativeMode)
+				heldItem.shrink(1);
 			return true;
 		}
 		return false;

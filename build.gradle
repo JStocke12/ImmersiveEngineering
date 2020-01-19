@@ -1,3 +1,5 @@
+import net.minecraftforge.gradle.common.task.SignJar
+
 buildscript {
     repositories {
         maven { url = 'https://files.minecraftforge.net/maven' }
@@ -35,7 +37,7 @@ minecraft {
     // stable_#            Stables are built at the discretion of the MCP team.
     // Use non-default mappings at your own risk. they may not always work.
     // Simply re-run your setup task after changing the mappings to update your workspace.
-    mappings channel: 'snapshot', version: '20190929-1.14.3'
+    mappings channel: 'snapshot', version: '20200112-1.14.3'
     // makeObfSourceJar = false // an Srg named sources jar is made by default. uncomment this to disable.
 
     accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
@@ -51,7 +53,12 @@ minecraft {
 
             // Recommended logging level for the console
             property 'forge.logging.console.level', 'debug'
-
+            // Necessary for VisualVM
+            property 'com.sun.management.jmxremote', 'true'
+            property 'com.sun.management.jmxremote.port', '9010'
+            property 'com.sun.management.jmxremote.local.only', 'false'
+            property 'com.sun.management.jmxremote.authenticate', 'false'
+            property 'com.sun.management.jmxremote.ssl', 'false'
             mods {
                 immersiveengineering {
                     source sourceSets.main
@@ -82,8 +89,10 @@ minecraft {
 
             // Recommended logging level for the console
             property 'forge.logging.console.level', 'debug'
+            property 'fml.earlyprogresswindow', 'false'
 
-            args '--mod', 'immersiveengineering', '--all', '--output', file('src/generated/resources/')
+            args '--mod', 'immersiveengineering', '--all', '--output', file('src/generated/resources/'), '--validate',
+                    '--existing', sourceSets.main.resources.srcDirs[0]
 
             mods {
                 immersiveengineering {
@@ -94,8 +103,24 @@ minecraft {
     }
 }
 
+repositories {
+    maven { // JEI & Tinkers
+        name 'DVS1 Maven FS'
+        url 'https://dvs1.progwml6.com/files/maven'
+    }
+    repositories {//Curseforge maven, in case some other maven goes offline and for mods that don't have a maven
+        maven {
+            name = "CurseForge"
+            url = "https://minecraft.curseforge.com/api/maven/"
+        }
+    }
+ }
 dependencies {
-    minecraft 'net.minecraftforge:forge:1.14.4-28.1.26'
+    minecraft 'net.minecraftforge:forge:1.14.4-28.1.114'
+    runtimeOnly fg.deobf("mezz.jei:jei-1.14.4:6.0.0.11")
+    runtimeOnly fg.deobf("nbtedit:NBTEdit:0.8.2")
+    compileOnly fg.deobf("mezz.jei:jei-1.14.4:6.0.0.11:api")
+    testImplementation('junit:junit:4.13')
 }
 
 def reobfFile = file("$buildDir/reobfJar/output.jar")
@@ -115,3 +140,20 @@ publishing {
         }
     }
 }
+task signJar(type: SignJar, dependsOn: jar) {
+    onlyIf {
+        project.hasProperty('keyStore')
+    }
+    if (project.hasProperty('keyStore')) {
+        keyStore = project.keyStore
+        alias = project.storeAlias
+        storePass = project.storePass
+        keyPass = project.storePass
+        inputFile = jar.archivePath
+        outputFile = jar.archivePath
+    } else {
+        logger.warn("No key store found, not signing the output jar\n")
+    }
+}
+
+build.dependsOn signJar

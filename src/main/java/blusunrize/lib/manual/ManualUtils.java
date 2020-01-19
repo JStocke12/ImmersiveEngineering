@@ -31,6 +31,7 @@ import net.minecraft.tags.ItemTags;
 import net.minecraft.tags.Tag;
 import net.minecraft.util.JSONUtils;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.TextFormatting;
 import net.minecraftforge.common.crafting.CraftingHelper;
 import org.lwjgl.opengl.GL11;
 
@@ -113,7 +114,7 @@ public class ManualUtils
 					ret.add(node);
 		}
 		ret.sort(
-				(s0, s1) -> getSpellingDistanceBetweenStrings(getTitle.apply(s1), getTitle.apply(s0))
+				Comparator.comparingInt(s -> getSpellingDistanceBetweenStrings(query, getTitle.apply(s)))
 		);
 		return ret;
 	}
@@ -141,12 +142,14 @@ public class ManualUtils
 						if(queryWords[iWord].charAt(iChar)!=targetWords[iWord].charAt(iChar))
 						{
 							wordDistance++;
-							if(iChar > 0&&queryWords[iWord].charAt(iChar-1)==targetWords[iWord].charAt(iChar)&&queryWords[iWord].charAt(iChar)==targetWords[iWord].charAt(iChar-1))
+							if(iChar > 0
+									&&queryWords[iWord].charAt(iChar-1)==targetWords[iWord].charAt(iChar)
+									&&queryWords[iWord].charAt(iChar)==targetWords[iWord].charAt(iChar-1))
 								wordDistance -= 2;//switched letters don't increase distance
 						}
 					}
 				if(wordDistance > 0)
-					wordDistance += targetWords[iWord].length()-queryWords[iWord].length();
+					wordDistance += Math.abs(targetWords[iWord].length()-queryWords[iWord].length());
 				distance += wordDistance;
 			}
 		}
@@ -158,6 +161,7 @@ public class ManualUtils
 	//Pass a single-element String array, to allow multiple outputs
 	public static List<String[]> prepareEntryForLinks(String[] entryA)
 	{
+		final String format = TextFormatting.ITALIC.toString()+TextFormatting.UNDERLINE.toString();
 		String entry = entryA[0];
 		List<String[]> repList = new ArrayList<>();
 		int linksAdded = 0;
@@ -177,14 +181,14 @@ public class ManualUtils
 			for(String resultPart : resultParts)
 			{
 				//prefixing replacements with MC's formatting character and an unused char to keep them unique, but not counted for size
-				String part = '\u00a7'+String.valueOf((char)(128+repList.size()))+resultPart;
+				String part = format+'\u00a7'+String.valueOf((char)(128+repList.size()))+resultPart;
 				forCompleteLink.add(part);
 				forCompleteLink.add(segment[1]);
 				forCompleteLink.add(anchor);
 				result.append(part);
 			}
 			repList.add(forCompleteLink.toArray(new String[0]));
-			entry = entry.substring(0, start)+result+entry.substring(end+1);
+			entry = entry.substring(0, start)+result+TextFormatting.RESET.toString()+entry.substring(end+1);
 		}
 		entryA[0] = entry;
 		return repList;

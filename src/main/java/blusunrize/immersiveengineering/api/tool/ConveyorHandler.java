@@ -53,16 +53,16 @@ import java.util.function.Function;
  */
 public class ConveyorHandler
 {
-	public static final Map<ResourceLocation, Class<? extends IConveyorBelt>> classRegistry = new LinkedHashMap<ResourceLocation, Class<? extends IConveyorBelt>>();
+	public static final Map<ResourceLocation, Class<? extends IConveyorBelt>> classRegistry = new LinkedHashMap<>();
 	public static final Map<ResourceLocation, Set<ResourceLocation>> substituteRegistry = new HashMap<>();
-	public static final Map<ResourceLocation, Function<TileEntity, ? extends IConveyorBelt>> functionRegistry = new LinkedHashMap<ResourceLocation, Function<TileEntity, ? extends IConveyorBelt>>();
+	public static final Map<ResourceLocation, Function<TileEntity, ? extends IConveyorBelt>> functionRegistry = new LinkedHashMap<>();
 	public static final Map<ResourceLocation, TileEntityType<? extends TileEntity>> tileEntities = new LinkedHashMap<>();
-	public static final Map<Class<? extends IConveyorBelt>, ResourceLocation> reverseClassRegistry = new LinkedHashMap<Class<? extends IConveyorBelt>, ResourceLocation>();
-	public static final Set<BiConsumer<Entity, IConveyorTile>> magnetSupressionFunctions = new HashSet<BiConsumer<Entity, IConveyorTile>>();
-	public static final Set<BiConsumer<Entity, IConveyorTile>> magnetSupressionReverse = new HashSet<BiConsumer<Entity, IConveyorTile>>();
+	public static final Map<Class<? extends IConveyorBelt>, ResourceLocation> reverseClassRegistry = new LinkedHashMap<>();
+	public static final Set<BiConsumer<Entity, IConveyorTile>> magnetSupressionFunctions = new HashSet<>();
+	public static final Set<BiConsumer<Entity, IConveyorTile>> magnetSupressionReverse = new HashSet<>();
 
 	public static final Map<ResourceLocation, Block> conveyorBlocks = MetalDevices.CONVEYORS;
-	public static final ResourceLocation textureConveyorColour = new ResourceLocation("immersiveengineering:blocks/conveyor_colour");
+	public static final ResourceLocation textureConveyorColour = new ResourceLocation("immersiveengineering:block/conveyor/colour");
 
 	/**
 	 * @param key           A unique ResourceLocation to identify the conveyor by
@@ -95,6 +95,12 @@ public class ConveyorHandler
 	 */
 	public static IConveyorBelt getConveyor(ResourceLocation key, @Nullable TileEntity tile)
 	{
+		if(tile instanceof ConveyorBeltTileEntity)
+		{
+			IConveyorBelt fromTile = ((ConveyorBeltTileEntity)tile).getConveyorSubtype();
+			if(fromTile!=null)
+				return fromTile;
+		}
 		Function<TileEntity, ? extends IConveyorBelt> func = functionRegistry.get(key);
 		if(func!=null)
 			return func.apply(tile);
@@ -108,8 +114,7 @@ public class ConveyorHandler
 			TileEntityType<ConveyorBeltTileEntity> te = new TileEntityType<>(() -> new ConveyorBeltTileEntity(rl),
 					ImmutableSet.of(conveyorBlocks.get(rl)),
 					null);
-			te.setRegistryName(new ResourceLocation(ImmersiveEngineering.MODID, "conveyor_"
-					+rl.toString().replace(':', '_')));
+			te.setRegistryName(getRegistryNameFor(rl));
 			tileEntities.put(rl, te);
 			evt.getRegistry().register(te);
 		}
@@ -120,14 +125,31 @@ public class ConveyorHandler
 		return tileEntities.get(typeName);
 	}
 
-	public static void registerConveyorBlocks(RegistryEvent.Register<Block> evt)
+	public static ResourceLocation getRegistryNameFor(ResourceLocation conveyorLoc)
+	{
+		String path;
+		if(ImmersiveEngineering.MODID.equals(conveyorLoc.getNamespace()))
+			path = conveyorLoc.getPath();
+		else
+			path = conveyorLoc.getNamespace()+"_"+conveyorLoc.getPath();
+		return new ResourceLocation(ImmersiveEngineering.MODID, "conveyor_"+path);
+	}
+
+	public static void createConveyorBlocks()
 	{
 		for(ResourceLocation rl : classRegistry.keySet())
 		{
 			Block b = new ConveyorBlock(rl);
-			evt.getRegistry().register(b);
 			conveyorBlocks.put(rl, b);
 		}
+	}
+
+	public static ResourceLocation getType(Block b)
+	{
+		if(b instanceof ConveyorBlock)
+			return ((ConveyorBlock)b).getTypeName();
+		else
+			return null;
 	}
 
 	public static Block getBlock(ResourceLocation typeName)
@@ -194,7 +216,6 @@ public class ConveyorHandler
 	/**
 	 * An interface for the external handling of conveyorbelts
 	 */
-	//TODO redesign the interface to make it either a singleton or obviously link each instance to a fixed TE
 	public interface IConveyorBelt
 	{
 		/**

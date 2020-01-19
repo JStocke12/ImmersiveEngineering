@@ -10,15 +10,17 @@ package blusunrize.immersiveengineering.api;
 
 import blusunrize.immersiveengineering.ImmersiveEngineering;
 import blusunrize.immersiveengineering.api.crafting.IngredientStack;
-import blusunrize.immersiveengineering.api.energy.wires.*;
-import blusunrize.immersiveengineering.api.energy.wires.Connection.CatenaryData;
+import blusunrize.immersiveengineering.api.wires.*;
+import blusunrize.immersiveengineering.api.wires.WireCollisionData.CollisionInfo;
+import blusunrize.immersiveengineering.api.wires.utils.CatenaryTracer;
 import blusunrize.immersiveengineering.common.EventHandler;
 import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IGeneralMultiblock;
 import blusunrize.immersiveengineering.common.network.MessageObstructedConnection;
-import blusunrize.immersiveengineering.common.util.IELogger;
 import blusunrize.immersiveengineering.common.util.ItemNBTHelper;
 import blusunrize.immersiveengineering.common.util.Utils;
 import blusunrize.immersiveengineering.common.util.chickenbones.Matrix4;
+import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.AtomicDouble;
 import it.unimi.dsi.fastutil.ints.Int2IntFunction;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -42,6 +44,7 @@ import net.minecraft.util.*;
 import net.minecraft.util.concurrent.ThreadTaskExecutor;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.World;
@@ -65,9 +68,9 @@ import org.apache.commons.lang3.tuple.Triple;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Predicate;
 
 import static blusunrize.immersiveengineering.common.IERecipes.getIngot;
 
@@ -403,6 +406,7 @@ public class ApiUtils
 		Vec3d offset = Vec3d.ZERO;
 		//Force loading
 		IImmersiveConnectable iicPos = net.getConnector(pos.getPosition());
+		Preconditions.checkArgument(!(iicPos instanceof IICProxy));
 		if(iicPos!=null)
 			offset = iicPos.getConnectionOffset(conn, pos);
 		if(fromOtherEnd)
@@ -417,12 +421,6 @@ public class ApiUtils
 	public static Vec3d addVectors(Vec3d vec0, Vec3d vec1)
 	{
 		return vec0.add(vec1.x, vec1.y, vec1.z);
-	}
-
-	public static double acosh(double x)
-	{
-		//See http://mathworld.wolfram.com/InverseHyperbolicCosine.html
-		return Math.log(x+Math.sqrt(x+1)*Math.sqrt(x-1));
 	}
 
 	public static Vec3d[] getConnectionCatenary(Vec3d start, Vec3d end, double slack)
@@ -477,163 +475,28 @@ public class ApiUtils
 		return p.add(dim==0?amount: 0, dim==1?amount: 0, dim==2?amount: 0);
 	}
 
-	public static boolean raytraceAlongCatenary(Connection conn, LocalWireNetwork net, Predicate<Triple<BlockPos, Vec3d, Vec3d>> shouldStop,
-												Consumer<Triple<BlockPos, Vec3d, Vec3d>> close)
+	public static void raytraceAlongCatenary(Connection conn, LocalWireNetwork net, Consumer<Triple<BlockPos, Vec3d, Vec3d>> shouldStop,
+											 Consumer<Triple<BlockPos, Vec3d, Vec3d>> close)
 	{
 		Vec3d vStart = getVecForIICAt(net, conn.getEndA(), conn, false);
 		Vec3d vEnd = getVecForIICAt(net, conn.getEndB(), conn, true);
-		IELogger.logger.info("Start: {}, end: {}", vStart, vEnd);
-		return raytraceAlongCatenaryRelative(conn, shouldStop, close, vStart, vEnd);
+		raytraceAlongCatenaryRelative(conn, shouldStop, close, vStart, vEnd);
 	}
 
-	/**
-	 * Use raytraceAlongCatenaryRelative instead, pass vStart and vEnd relative to the start of the connection
-	 */
-	@Deprecated
-	public static boolean raytraceAlongCatenary(Connection conn, Predicate<Triple<BlockPos, Vec3d, Vec3d>> shouldStop,
-												Consumer<Triple<BlockPos, Vec3d, Vec3d>> close, Vec3d vStart, Vec3d vEnd)
+	public static void raytraceAlongCatenaryRelative(Connection conn, Consumer<Triple<BlockPos, Vec3d, Vec3d>> in,
+													 Consumer<Triple<BlockPos, Vec3d, Vec3d>> close, Vec3d vStart,
+													 Vec3d vEnd)
 	{
-		BlockPos posA = conn.getEndA().getPosition();
-		return raytraceAlongCatenaryRelative(conn, shouldStop, close,
-				vStart.subtract(posA.getX(), posA.getY(), posA.getZ()),
-				vEnd.subtract(posA.getX(), posA.getY(), posA.getZ()));
-	}
-
-	public static boolean raytraceAlongCatenaryRelative(Connection conn, Predicate<Triple<BlockPos, Vec3d, Vec3d>> shouldStop,
-														Consumer<Triple<BlockPos, Vec3d, Vec3d>> close, Vec3d vStart, Vec3d vEnd)
-	{
-		IELogger.logger.info("Start is {}, end {}", vStart, vEnd);
 		conn.generateCatenaryData(vStart, vEnd);
-		HashMap<BlockPos, Vec3d> halfScanned = new HashMap<>();
-		HashSet<BlockPos> done = new HashSet<>();
-		HashSet<Triple<BlockPos, Vec3d, Vec3d>> near = new HashSet<>();
-		Vec3d across = vEnd.subtract(vStart);
-		across = new Vec3d(across.x, 0, across.z);
-		double lengthHor = across.length();
-		BlockPos startPos = conn.getEndA().getPosition();
-		BlockPos endPos = conn.getEndB().getPosition();
-		halfScanned.put(startPos, vStart);
-		halfScanned.put(endPos, vEnd);
-		//Raytrace X&Z
-		for(int dim = 0; dim <= 2; dim += 2)
-		{
-			int start = (int)Math.ceil(Math.min(getDim(vStart, dim), getDim(vEnd, dim)));
-			int end = (int)Math.ceil(Math.max(getDim(vStart, dim), getDim(vEnd, dim)));
-			for(int i = start; i < end; i++)
-			{
-				double factor = (i-getDim(vStart, dim))/getDim(across, dim);
-				Vec3d pos = conn.getPoint(factor, conn.getEndA());
-
-				if(handleVec(pos, pos, 0, halfScanned, done, shouldStop, near, startPos))
-					return false;
-			}
-		}
-		//Raytrace Y
-		boolean vertical = vStart.x==vEnd.x&&vStart.z==vEnd.z;
-		if(vertical)
-		{
-			for(int y = (int)Math.ceil(Math.min(vStart.y, vEnd.y)); y <= Math.floor(Math.max(vStart.y, vEnd.y)); y++)
-			{
-				Vec3d pos = new Vec3d(vStart.x, y, vStart.z);
-				if(handleVec(pos, pos, 0, halfScanned, done, shouldStop, near, startPos))
-					return false;
-			}
-		}
-		else
-		{
-			CatenaryData data = conn.catData;
-			double min = data.getA()+data.getOffsetY()+vStart.y;
-			for(int i = 0; i < 2; i++)
-			{
-				double factor = i==0?1: -1;
-				double max = i==0?vEnd.y: vStart.y;
-				for(int y = (int)Math.ceil(min); y <= Math.floor(max); y++)
-				{
-					double yReal = y-vStart.y;
-					double posRel;
-					Vec3d pos;
-					posRel = (factor*acosh((yReal-data.getOffsetY())/data.getA())*data.getA()+data.getOffsetX())/lengthHor;
-					pos = new Vec3d(vStart.x+across.x*posRel, y, vStart.z+across.z*posRel);
-
-					if(posRel >= 0&&posRel <= 1&&handleVec(pos, pos, 0, halfScanned, done, shouldStop, near, startPos))
-						return false;
-				}
-			}
-		}
-		for(Triple<BlockPos, Vec3d, Vec3d> p : near)
-			close.accept(p);
-		for(Map.Entry<BlockPos, Vec3d> p : halfScanned.entrySet())
-			if(shouldStop.test(new ImmutableTriple<>(p.getKey(), p.getValue(), p.getValue())))
-				return false;
-		return true;
-	}
-
-	private static boolean handleVec(Vec3d pos, Vec3d origPos, int start, HashMap<BlockPos, Vec3d> halfScanned, HashSet<BlockPos> done,
-									 Predicate<Triple<BlockPos, Vec3d, Vec3d>> shouldStop, HashSet<Triple<BlockPos, Vec3d, Vec3d>> near,
-									 BlockPos offset)
-	{
-		final double DELTA_HIT = 1e-5;
-		final double EPSILON = 1e-5;
-		boolean calledOther = false;
-		for(int i = start; i < 3; i++)
-		{
-			double coord = getDim(pos, i);
-			double diff = coord-Math.floor(coord);
-			if(diff < DELTA_HIT)
-			{
-				if(handleVec(offsetDim(pos, i, -(diff+EPSILON)), origPos, i+1, halfScanned, done, shouldStop, near, offset))
-					return true;
-				calledOther = true;
-			}
-			diff = Math.ceil(coord)-coord;
-			if(diff < DELTA_HIT)
-			{
-				if(handleVec(offsetDim(pos, i, diff+EPSILON), origPos, i+1, halfScanned, done, shouldStop, near, offset))
-					return true;
-				calledOther = true;
-			}
-		}
-		if(!calledOther)
-		{
-			BlockPos blockPos = new BlockPos(pos);
-			return handlePos(origPos.subtract(blockPos.getX(), blockPos.getY(), blockPos.getZ()),
-					blockPos.add(offset), halfScanned, done, shouldStop, near);
-		}
-		return false;
-	}
-
-	private static boolean handlePos(Vec3d pos, BlockPos posB, HashMap<BlockPos, Vec3d> halfScanned, HashSet<BlockPos> done,
-									 Predicate<Triple<BlockPos, Vec3d, Vec3d>> shouldStop, HashSet<Triple<BlockPos, Vec3d, Vec3d>> near)
-	{
-		final double DELTA_NEAR = .3;
-		if(!done.contains(posB))
-		{
-			if(halfScanned.containsKey(posB)&&!pos.equals(halfScanned.get(posB)))
-			{
-				Triple<BlockPos, Vec3d, Vec3d> added = new ImmutableTriple<>(posB, halfScanned.get(posB), pos);
-				boolean stop = shouldStop.test(added);
-				done.add(posB);
-				halfScanned.remove(posB);
-				near.removeIf((t) -> t.getLeft().equals(posB));
-				if(stop)
-					return true;
-				for(int i = 0; i < 3; i++)
-				{
-					double coord = getDim(pos, i);
-					double diff = coord-Math.floor(coord);
-					if(diff < DELTA_NEAR)
-						near.add(new ImmutableTriple<>(offsetDim(posB, i, -1), added.getMiddle(), added.getRight()));
-					diff = Math.ceil(coord)-coord;
-					if(diff < DELTA_NEAR)
-						near.add(new ImmutableTriple<>(offsetDim(posB, i, 1), added.getMiddle(), added.getRight()));
-				}
-			}
+		final BlockPos offset = conn.getEndA().getPosition();
+		CatenaryTracer ct = new CatenaryTracer(conn.catData, offset);
+		ct.calculateIntegerIntersections();
+		ct.forEachSegment(segment -> {
+			if(segment.inBlock)
+				in.accept(new ImmutableTriple<>(segment.mainPos, segment.relativeSegmentStart, segment.relativeSegmentEnd));
 			else
-			{
-				halfScanned.put(posB, pos);
-			}
-		}
-		return false;
+				close.accept(new ImmutableTriple<>(segment.mainPos, segment.relativeSegmentStart, segment.relativeSegmentEnd));
+		});
 	}
 
 	public static WireType getWireTypeFromNBT(CompoundNBT tag, String key)
@@ -647,7 +510,7 @@ public class ApiUtils
 		if(tileEntity instanceof IImmersiveConnectable&&((IImmersiveConnectable)tileEntity).canConnect())
 		{
 			ItemStack stack = player.getHeldItem(hand);
-			TargetingInfo targetHere = new TargetingInfo(side, hitX, hitY, hitZ);
+			TargetingInfo targetHere = new TargetingInfo(side, hitX-pos.getX(), hitY-pos.getY(), hitZ-pos.getZ());
 			WireType wire = coil.getWireType(stack);
 			BlockPos masterPos = ((IImmersiveConnectable)tileEntity).getConnectionMaster(wire, targetHere);
 			BlockPos offsetHere = pos.subtract(masterPos);
@@ -682,13 +545,13 @@ public class ApiUtils
 					CompoundNBT linkNBT = stack.getOrCreateTag().getCompound("linkingPos");
 					DimensionBlockPos linkPos = new DimensionBlockPos(linkNBT.getCompound("master"));
 					BlockPos offsetLink = NBTUtil.readBlockPos(linkNBT.getCompound("offset"));
-					TileEntity tileEntityLinkingPos = world.getTileEntity(linkPos);
-					int distanceSq = (int)Math.ceil(linkPos.distanceSq(masterPos));
+					TileEntity tileEntityLinkingPos = world.getTileEntity(linkPos.pos);
+					int distanceSq = (int)Math.ceil(linkPos.pos.distanceSq(masterPos));
 					int maxLengthSq = coil.getMaxLength(stack); //not squared yet
 					maxLengthSq *= maxLengthSq;
 					if(linkPos.dimension!=world.getDimension().getType())
 						player.sendStatusMessage(new TranslationTextComponent(Lib.CHAT_WARN+"wrongDimension"), true);
-					else if(linkPos.equals(masterPos))
+					else if(linkPos.pos.equals(masterPos))
 						player.sendStatusMessage(new TranslationTextComponent(Lib.CHAT_WARN+"sameConnection"), true);
 					else if(distanceSq > maxLengthSq)
 						player.sendStatusMessage(new TranslationTextComponent(Lib.CHAT_WARN+"tooFar"), true);
@@ -696,15 +559,13 @@ public class ApiUtils
 					{
 						TargetingInfo targetLink = TargetingInfo.readFromNBT(ItemNBTHelper.getTagCompound(stack, "targettingInfo"));
 						if(!(tileEntityLinkingPos instanceof IImmersiveConnectable))
-						{
 							player.sendStatusMessage(new TranslationTextComponent(Lib.CHAT_WARN+"invalidPoint"), true);
-						}
 						else
 						{
 							IImmersiveConnectable iicLink = (IImmersiveConnectable)tileEntityLinkingPos;
 							ConnectionPoint cpLink = iicLink.getTargetedPoint(targetLink, offsetLink);
 							if(!((IImmersiveConnectable)tileEntityLinkingPos).canConnectCable(wire, cpLink, offsetLink)||
-									!((IImmersiveConnectable)tileEntityLinkingPos).getConnectionMaster(wire, targetLink).equals(linkPos)||
+									!((IImmersiveConnectable)tileEntityLinkingPos).getConnectionMaster(wire, targetLink).equals(linkPos.pos)||
 									!coil.canConnectCable(stack, tileEntityLinkingPos))
 							{
 								player.sendStatusMessage(new TranslationTextComponent(Lib.CHAT_WARN+"invalidPoint"), true);
@@ -731,23 +592,20 @@ public class ApiUtils
 									Set<BlockPos> ignore = new HashSet<>();
 									ignore.addAll(iicHere.getIgnored(iicLink));
 									ignore.addAll(iicLink.getIgnored(iicHere));
-									BlockPos.MutableBlockPos failedReason = new BlockPos.MutableBlockPos();
+									Set<BlockPos> failedReasons = new HashSet<>();
 									Connection tempConn = new Connection(wire, cpHere, cpLink);
 									Vec3d start = iicHere.getConnectionOffset(tempConn, cpHere);
 									Vec3d end = iicLink.getConnectionOffset(tempConn, cpLink);
-									boolean canSee = ApiUtils.raytraceAlongCatenaryRelative(tempConn, (p) -> {
-										if(ignore.contains(p.getLeft()))
-											return false;
-										BlockState state = world.getBlockState(p.getLeft());
-										if(ApiUtils.preventsConnection(world, p.getLeft(), state, p.getMiddle(), p.getRight()))
+									ApiUtils.raytraceAlongCatenaryRelative(tempConn, (p) -> {
+										if(!ignore.contains(p.getLeft()))
 										{
-											failedReason.setPos(p.getLeft());
-											return true;
+											BlockState state = world.getBlockState(p.getLeft());
+											if(ApiUtils.preventsConnection(world, p.getLeft(), state, p.getMiddle(), p.getRight()))
+												failedReasons.add(p.getLeft());
 										}
-										return false;
 									}, (p) -> {
-									}, start, end.add(new Vec3d(linkPos.subtract(masterPos))));
-									if(canSee)
+									}, start, end.add(new Vec3d(linkPos.pos.subtract(masterPos))));
+									if(failedReasons.isEmpty())
 									{
 										Connection conn = new Connection(wire, cpHere, cpLink);
 										net.addConnection(conn);
@@ -764,16 +622,16 @@ public class ApiUtils
 										BlockState state = world.getBlockState(masterPos);
 										world.notifyBlockUpdate(masterPos, state, state, 3);
 										((TileEntity)iicLink).markDirty();
-										world.addBlockEvent(linkPos, ((TileEntity)iicLink).getBlockState().getBlock(), -1, 0);
-										state = world.getBlockState(linkPos);
-										world.notifyBlockUpdate(linkPos, state, state, 3);
+										world.addBlockEvent(linkPos.pos, ((TileEntity)iicLink).getBlockState().getBlock(), -1, 0);
+										state = world.getBlockState(linkPos.pos);
+										world.notifyBlockUpdate(linkPos.pos, state, state, 3);
 									}
 									else
 									{
 										player.sendStatusMessage(new TranslationTextComponent(Lib.CHAT_WARN+"cantSee"), true);
 										ImmersiveEngineering.packetHandler.send(
-												PacketDistributor.TRACKING_CHUNK.with(() -> world.getChunkAt(failedReason)),
-												new MessageObstructedConnection(tempConn, failedReason, player.world));
+												PacketDistributor.TRACKING_CHUNK.with(() -> world.getChunkAt(failedReasons.iterator().next())),
+												new MessageObstructedConnection(tempConn, failedReasons));
 									}
 								}
 							}
@@ -800,11 +658,7 @@ public class ApiUtils
 		else if(input instanceof List)
 			return input;
 		else if(input instanceof ResourceLocation)
-		{
-			if(!ApiUtils.isNonemptyItemTag((ResourceLocation)input))
-				return getItemsInTag((ResourceLocation)input);
-			return null;
-		}
+			return input;
 		else
 			throw new RuntimeException("Recipe Inputs must always be ItemStack, Item, Block or ResourceLocation (tag name), "+input+" is invalid");
 	}
@@ -853,7 +707,7 @@ public class ApiUtils
 			return new IngredientStack((ResourceLocation)input);
 		else if(input instanceof FluidStack)
 			return new IngredientStack((FluidStack)input);
-		throw new RuntimeException("Recipe Ingredients must always be ItemStack, Item, Block, List<ItemStack>, String (OreDictionary name) or FluidStack; "+input+" is invalid");
+		throw new RuntimeException("Recipe Ingredients must always be ItemStack, Item, Block, List<ItemStack>, ResourceLocation (Tag name) or FluidStack; "+input+" is invalid");
 	}
 
 	public static boolean hasPlayerIngredient(PlayerEntity player, IngredientStack ingredient)
@@ -926,7 +780,7 @@ public class ApiUtils
 
 	public static <T extends TileEntity & IGeneralMultiblock> void checkForNeedlessTicking(T te)
 	{
-		if(!te.getWorld().isRemote&&te.isLogicDummy())
+		if(!te.getWorld().isRemote&&te.isDummy())
 			EventHandler.REMOVE_FROM_TICKING.add(te);
 	}
 
@@ -934,8 +788,8 @@ public class ApiUtils
 	{
 		for(AxisAlignedBB aabb : state.getCollisionShape(worldIn, pos).toBoundingBoxList())
 		{
-			aabb = aabb.offset(-pos.getX(), -pos.getY(), -pos.getZ()).grow(1e-5);
-			if(aabb.contains(a)||aabb.contains(b))
+			aabb = aabb.grow(1e-5);
+			if(aabb.contains(a)||aabb.contains(b)||aabb.rayTrace(a, b).isPresent())
 				return true;
 		}
 		return false;
@@ -955,50 +809,33 @@ public class ApiUtils
 
 	public static Connection raytraceWires(World world, Vec3d start, Vec3d end, @Nullable Connection ignored)
 	{
-		return null;//TODO
-		/*
-		Vec3d look = player.getLookVec();
-		Vec3d start = player.getPositionEyes(1);
-		Vec3d end = start.add(look.scale(maxDistance));
-		Map<BlockPos, ImmersiveNetHandler.BlockWireInfo> inDim = ImmersiveNetHandler.INSTANCE.blockWireMap
-				.lookup(world.provider.getDimension());
+		GlobalWireNetwork global = GlobalWireNetwork.getNetwork(world);
+		WireCollisionData collisionData = global.getCollisionData();
 		AtomicReference<Connection> ret = new AtomicReference<>();
 		AtomicDouble minDistSq = new AtomicDouble(Double.POSITIVE_INFINITY);
-		if(inDim!=null)
+		Utils.rayTrace(start, end, world, (pos) ->
 		{
-			Utils.rayTrace(start, end, world, (pos) ->
+			Collection<CollisionInfo> infoAtPos = collisionData.getCollisionInfo(pos);
+			for(CollisionInfo wireInfo : infoAtPos)
 			{
-				if(inDim.containsKey(pos))
+				Connection c = wireInfo.conn;
+				if(ignored==null||!c.hasSameConnectors(ignored))
 				{
-					ImmersiveNetHandler.BlockWireInfo info = inDim.get(pos);
-					for(int i = 0; i < 2; i++)
+					Vec3d startRelative = start.add(-pos.getX(), -pos.getY(), -pos.getZ());
+					Vec3d across = wireInfo.intersectB.subtract(wireInfo.intersectA);
+					double t = Utils.getCoeffForMinDistance(startRelative, wireInfo.intersectA, across);
+					t = MathHelper.clamp(t, 0, 1);
+					Vec3d closest = wireInfo.intersectA.add(t*across.x, t*across.y, t*across.z);
+					double distSq = closest.squareDistanceTo(startRelative);
+					if(distSq < minDistSq.get())
 					{
-						Set<Triple<Connection, Vec3d, Vec3d>> conns = i==0?info.in: info.near;
-						for(Triple<Connection, Vec3d, Vec3d> conn : conns)
-						{
-							Connection c = conn.getLeft();
-							if(ignored==null||!c.hasSameConnectors(ignored))
-							{
-								Vec3d startRelative = start.add(-pos.getX(), -pos.getY(), -pos.getZ());
-								Vec3d across = conn.getRight().subtract(conn.getMiddle());
-								double t = Utils.getCoeffForMinDistance(startRelative, conn.getMiddle(), across);
-								t = MathHelper.clamp(0, t, 1);
-								Vec3d closest = conn.getMiddle().add(t*across.x, t*across.y, t*across.z);
-								double distSq = closest.squareDistanceTo(startRelative);
-								if(distSq < minDistSq.get())
-								{
-									ret.set(c);
-									minDistSq.set(distSq);
-								}
-							}
-						}
+						ret.set(c);
+						minDistSq.set(distSq);
 					}
 				}
-			});
-		}
-
+			}
+		});
 		return ret.get();
-		 */
 	}
 
 	public static Connection getConnectionMovedThrough(World world, LivingEntity e)
@@ -1019,13 +856,14 @@ public class ApiUtils
 	public static void addFutureServerTask(World world, Runnable task, boolean forceFuture)
 	{
 		if(forceFuture)
-			new Thread(() -> addFutureServerTask(world, task));
+			new Thread(() -> addFutureServerTask(world, task)).start();
 		else
 			addFutureServerTask(world, task);
 	}
 	public static void addFutureServerTask(World world, Runnable task)
 	{
 		LogicalSide side = world.isRemote?LogicalSide.CLIENT: LogicalSide.SERVER;
+		//TODO this sometimes causes NPEs?
 		ThreadTaskExecutor<?> tmp = LogicalSidedProvider.WORKQUEUE.get(side);
 		tmp.deferTask(task);
 	}

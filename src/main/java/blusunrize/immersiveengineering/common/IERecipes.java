@@ -18,6 +18,7 @@ import blusunrize.immersiveengineering.common.blocks.EnumMetals;
 import blusunrize.immersiveengineering.common.blocks.IEBlocks.StoneDecoration;
 import blusunrize.immersiveengineering.common.crafting.MetalPressPackingRecipe;
 import blusunrize.immersiveengineering.common.crafting.MetalPressUnpackingRecipe;
+import blusunrize.immersiveengineering.common.items.BulletItem;
 import blusunrize.immersiveengineering.common.items.IEBaseItem;
 import blusunrize.immersiveengineering.common.items.IEItems.Misc;
 import blusunrize.immersiveengineering.common.items.IEItems.Molds;
@@ -59,9 +60,6 @@ public class IERecipes
 		/*
 		//Loop, special or colouration recipes
 		registry.register(new RecipeBannerAdvanced().setRegistryName(ImmersiveEngineering.MODID, "banners"));
-		registry.register(new RecipeRevolver(id).setRegistryName(ImmersiveEngineering.MODID, "revolver_loop"));
-		registry.register(new RecipeSpeedloader().setRegistryName(ImmersiveEngineering.MODID, "speedloader_load"));
-		registry.register(new RecipeJerrycan(id).setRegistryName(ImmersiveEngineering.MODID, "jerrycan"));
 		registry.register(new RecipeShaderBags(id).setRegistryName(ImmersiveEngineering.MODID, "shader_bags"));
 		registry.register(new RecipeEarmuffs().setRegistryName(ImmersiveEngineering.MODID, "earmuffs"));
 		registry.register(new RecipePowerpack(id).setRegistryName(ImmersiveEngineering.MODID, "powerpack"));
@@ -70,8 +68,6 @@ public class IERecipes
 				(s) -> (ItemNBTHelper.hasKey(s, "colour")?ItemNBTHelper.getInt(s, "colour"): 0xffffff),
 				(s, i) -> ItemNBTHelper.putInt(s, "colour", i))
 				.setRegistryName(ImmersiveEngineering.MODID, "stripcurtain_colour"));
-		ForgeRegistries.RECIPES.register(new RecipeFlareBullets(id).setRegistryName(ImmersiveEngineering.MODID, "potion_flare"));
-		ForgeRegistries.RECIPES.register(new RecipePotionBullets(id).setRegistryName(ImmersiveEngineering.MODID, "bullet_potion"));
 		*/
 	}
 
@@ -83,13 +79,25 @@ public class IERecipes
 		Tag<Item> ironPlate = IETags.getTagsFor(IRON).plate;
 		Tag<Item> steelPlate = IETags.getTagsFor(STEEL).plate;
 		Tag<Item> nickelPlate = IETags.getTagsFor(NICKEL).plate;
+		Tag<Item> copperPlate = IETags.getTagsFor(COPPER).plate;
 		Tag<Item> copperIngot = IETags.getTagsFor(COPPER).ingot;
+		Tag<Item> hopGraphiteIngot = IETags.hopGraphiteIngot;
+		Tag<Item> leadNugget = IETags.getTagsFor(LEAD).nugget;
+		Tag<Item> silverNugget = IETags.getTagsFor(SILVER).nugget;
+		Tag<Item> steelNugget = IETags.getTagsFor(LEAD).nugget;
+		Tag<Item> aluDust = IETags.getTagsFor(ALUMINUM).nugget;
+		Tag<Item> constantanNugget = IETags.getTagsFor(CONSTANTAN).nugget;
 		Tag<Item> glassBlock = Tags.Items.GLASS;
+		Tag<Item> dustRedstone = Tags.Items.DUSTS_REDSTONE;
+		Tag<Item> copperWire = IETags.copperWire;
+		Tag<Item> redDye = Tags.Items.DYES_RED;
+		Tag<Item> greenDye = Tags.Items.DYES_GREEN;
+		Tag<Item> blueDye = Tags.Items.DYES_BLUE;
 		BlueprintCraftingRecipe.addRecipe("components", new ItemStack(componentIron), ironPlate, ironPlate, copperIngot);
 		BlueprintCraftingRecipe.addRecipe("components", new ItemStack(componentSteel), steelPlate, steelPlate, copperIngot);
-		BlueprintCraftingRecipe.addRecipe("components", new ItemStack(electronTube, 3), "blockGlass", "plateNickel", "wireCopper", "dustRedstone");
+		BlueprintCraftingRecipe.addRecipe("components", new ItemStack(electronTube, 3), glassBlock, nickelPlate, copperWire, dustRedstone);
 		BlueprintCraftingRecipe.addRecipe("components", new ItemStack(circuitBoard),
-				new ItemStack(StoneDecoration.insulatingGlass), "plateCopper", "electronTube", "electronTube");
+				new ItemStack(StoneDecoration.insulatingGlass), copperPlate, electronTube, electronTube);
 
 		//
 		//MOLDS
@@ -110,83 +118,61 @@ public class IERecipes
 		//BULLETS
 		//
 		//Casull
-		ItemStack bullet = BulletHandler.getBulletStack("casull");
-		BlueprintCraftingRecipe.addRecipe("bullet", bullet, new ItemStack(emptyCasing), Items.GUNPOWDER, "nuggetLead", "nuggetLead");
+		ItemStack bullet = BulletHandler.getBulletStack(BulletItem.CASULL);
+		BlueprintCraftingRecipe.addRecipe("bullet", bullet, new ItemStack(emptyCasing), Items.GUNPOWDER, leadNugget, leadNugget);
 		//Piercing
-		bullet = BulletHandler.getBulletStack("armorPiercing");
-		BlueprintCraftingRecipe.addRecipe("bullet", bullet, new ItemStack(emptyCasing), Items.GUNPOWDER, "nuggetSteel", "nuggetSteel", "nuggetConstantan", "nuggetConstantan");
-		if(ApiUtils.isNonemptyItemTag(getNugget("tungsten")))
-			BlueprintCraftingRecipe.addRecipe("bullet", bullet, new ItemStack(emptyCasing), Items.GUNPOWDER, "nuggetTungsten", "nuggetTungsten");
+		bullet = BulletHandler.getBulletStack(BulletItem.ARMOR_PIERCING);
+		BlueprintCraftingRecipe.addRecipe("bullet", bullet, new ItemStack(emptyCasing), Items.GUNPOWDER, steelNugget, steelNugget, constantanNugget, constantanNugget);
+		ResourceLocation tungstenNugget = getNugget("tungsten");
+		if(ApiUtils.isNonemptyItemTag(tungstenNugget))
+			BlueprintCraftingRecipe.addRecipe("bullet", bullet, new ItemStack(emptyCasing), Items.GUNPOWDER, tungstenNugget, tungstenNugget);
 		// We don't have depleted stuff atm
 		//		if(ApiUtils.isNonemptyItemTag("nuggetCyanite"))
 		//			BlueprintCraftingRecipe.addRecipe("bullet", new ItemStack(IEContent.itemBullet,1,3), new ItemStack(IEContent.itemBullet,1,0),Items.gunpowder,"nuggetCyanite","nuggetCyanite");
 		//		else if(ApiUtils.isNonemptyItemTag("ingotCyanite"))
 		//			BlueprintCraftingRecipe.addRecipe("bullet", new ItemStack(IEContent.itemBullet,3,3), new ItemStack(IEContent.itemBullet,3,0),new ItemStack(Items.gunpowder,3),"ingotCyanite");
 		//Silver
-		bullet = BulletHandler.getBulletStack("silver");
-		BlueprintCraftingRecipe.addRecipe("bullet", bullet, new ItemStack(emptyCasing), Items.GUNPOWDER, "nuggetLead", "nuggetLead", "nuggetSilver");
+		bullet = BulletHandler.getBulletStack(BulletItem.SILVER);
+		BlueprintCraftingRecipe.addRecipe("bullet", bullet, new ItemStack(emptyCasing), Items.GUNPOWDER, leadNugget, leadNugget, silverNugget);
 		//Buckshot
-		bullet = BulletHandler.getBulletStack("buckshot");
-		BlueprintCraftingRecipe.addRecipe("bullet", bullet, new ItemStack(emptyShell), Items.GUNPOWDER, "dustIron");
+		bullet = BulletHandler.getBulletStack(BulletItem.BUCKSHOT);
+		BlueprintCraftingRecipe.addRecipe("bullet", bullet, new ItemStack(emptyShell), Items.GUNPOWDER, getDust("iron"));
 		//HE
-		bullet = BulletHandler.getBulletStack("HE");
+		bullet = BulletHandler.getBulletStack(BulletItem.HIGH_EXPLOSIVE);
 		BlueprintCraftingRecipe.addRecipe("bullet", bullet, new ItemStack(emptyCasing), Items.GUNPOWDER, Blocks.TNT);
 		//Dragonsbreath
-		bullet = BulletHandler.getBulletStack("dragonsbreath");
-		BlueprintCraftingRecipe.addRecipe("specialBullet", bullet, new ItemStack(emptyShell), Items.GUNPOWDER, "dustAluminum", "dustAluminum");
+		bullet = BulletHandler.getBulletStack(BulletItem.DRAGONS_BREATH);
+		BlueprintCraftingRecipe.addRecipe("specialBullet", bullet, new ItemStack(emptyShell), Items.GUNPOWDER, aluDust, aluDust);
 		//Potion
-		bullet = BulletHandler.getBulletStack("potion");
+		bullet = BulletHandler.getBulletStack(BulletItem.POTION);
 		BlueprintCraftingRecipe.addRecipe("specialBullet", bullet, new ItemStack(emptyCasing), Items.GUNPOWDER, Items.GLASS_BOTTLE);
 		//Flare
-		bullet = BulletHandler.getBulletStack("flare");
+		bullet = BulletHandler.getBulletStack(BulletItem.FLARE);
 		ItemNBTHelper.putInt(bullet, "flareColour", 0xcc2e06);
-		BlueprintCraftingRecipe.addRecipe("specialBullet", bullet.copy(), new ItemStack(emptyShell), Items.GUNPOWDER, "dustAluminum", "dyeRed");
+		BlueprintCraftingRecipe.addRecipe("specialBullet", bullet.copy(), new ItemStack(emptyShell), Items.GUNPOWDER, aluDust, redDye);
 		ItemNBTHelper.putInt(bullet, "flareColour", 0x2ca30b);
-		BlueprintCraftingRecipe.addRecipe("specialBullet", bullet.copy(), new ItemStack(emptyShell), Items.GUNPOWDER, "dustAluminum", "dyeGreen");
+		BlueprintCraftingRecipe.addRecipe("specialBullet", bullet.copy(), new ItemStack(emptyShell), Items.GUNPOWDER, aluDust, greenDye);
 		ItemNBTHelper.putInt(bullet, "flareColour", 0xffff82);
-		BlueprintCraftingRecipe.addRecipe("specialBullet", bullet.copy(), new ItemStack(emptyShell), Items.GUNPOWDER, "dustAluminum", "dyeYellow");
+		BlueprintCraftingRecipe.addRecipe("specialBullet", bullet.copy(), new ItemStack(emptyShell), Items.GUNPOWDER, aluDust, blueDye);
 
 		//Wolfpack
+		/*TODO new condition, or maybe an event?
 		if(!BulletHandler.homingCartridges.isEmpty())
 		{
-			bullet = BulletHandler.getBulletStack("wolfpack");
+			bullet = BulletHandler.getBulletStack(BulletItem.WOLFPACK);
 			ArrayList<ItemStack> homingCartridges = new ArrayList<>();
 			for(String s : BulletHandler.homingCartridges)
 				homingCartridges.add(BulletHandler.getBulletStack(s));
 			BlueprintCraftingRecipe.addRecipe("specialBullet", bullet.copy(), new ItemStack(emptyShell), Items.GUNPOWDER, homingCartridges, homingCartridges, homingCartridges, homingCartridges);
 		}
+		 */
 
 		BlueprintCraftingRecipe.addVillagerTrade("bullet", new ItemStack(Items.EMERALD, 1));
 		BlueprintCraftingRecipe.addVillagerTrade("specialBullet", new ItemStack(Items.EMERALD, 1));
 
-		BlueprintCraftingRecipe.addRecipe("electrode", new ItemStack(Misc.graphiteElectrode), "ingotHOPGraphite", "ingotHOPGraphite", "ingotHOPGraphite", "ingotHOPGraphite");
+		BlueprintCraftingRecipe.addRecipe("electrode", new ItemStack(Misc.graphiteElectrode),
+				hopGraphiteIngot, hopGraphiteIngot, hopGraphiteIngot, hopGraphiteIngot);
 		BlueprintCraftingRecipe.addVillagerTrade("electrode", new ItemStack(Items.EMERALD, 1));
-	}
-
-	public static void initFurnaceRecipes()
-	{
-		//TODO JSONs
-		//Ores
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.blockOre, 1, 0), new ItemStack(IEContent.itemMetal, 1, 0), 0.3f);
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.blockOre, 1, 1), new ItemStack(IEContent.itemMetal, 1, 1), 0.3F);
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.blockOre, 1, 2), new ItemStack(IEContent.itemMetal, 1, 2), 0.7F);
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.blockOre, 1, 3), new ItemStack(IEContent.itemMetal, 1, 3), 1.0F);
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.blockOre, 1, 4), new ItemStack(IEContent.itemMetal, 1, 4), 1.0F);
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.blockOre, 1, 5), new ItemStack(IEContent.itemMetal, 1, 5), 1.0F);
-		//Dusts
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.itemMetal, 1, 9), new ItemStack(IEContent.itemMetal, 1, 0), 0.3F);
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.itemMetal, 1, 10), new ItemStack(IEContent.itemMetal, 1, 1), 0.3F);
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.itemMetal, 1, 11), new ItemStack(IEContent.itemMetal, 1, 2), 0.7F);
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.itemMetal, 1, 12), new ItemStack(IEContent.itemMetal, 1, 3), 0.7F);
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.itemMetal, 1, 13), new ItemStack(IEContent.itemMetal, 1, 4), 1F);
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.itemMetal, 1, 14), new ItemStack(IEContent.itemMetal, 1, 5), 0.7F);
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.itemMetal, 1, 15), new ItemStack(IEContent.itemMetal, 1, 6), 0.7F);
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.itemMetal, 1, 16), new ItemStack(IEContent.itemMetal, 1, 7), 1F);
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.itemMetal, 1, 17), new ItemStack(IEContent.itemMetal, 1, 8), 0.7F);
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.itemMetal, 1, 18), new ItemStack(Items.IRON_INGOT), 0.7F);
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.itemMetal, 1, 19), new ItemStack(Items.GOLD_INGOT), 1.0F);
-
-		//FurnaceRecipes.instance().addSmeltingRecipe(new ItemStack(IEContent.itemMaterial, 1, 18), new ItemStack(IEContent.itemMaterial, 1, 19), 0.5F);
 	}
 
 	public static void initBlastFurnaceRecipes()
@@ -234,10 +220,10 @@ public class IERecipes
 	{
 		//TODO replace oredict names with tags
 		if(true) return;
-		oreOutputSecondaries.put("Iron", new Object[]{"dustNickel", .1f});
+		oreOutputSecondaries.put("Iron", new Object[]{getDust("nickel"), .1f});
 		oreOutputSecondaries.put("Gold", new Object[]{"crystalCinnabar", .05f});
-		oreOutputSecondaries.put("Copper", new Object[]{"dustGold", .1f});
-		oreOutputSecondaries.put("Lead", new Object[]{"dustSilver", .1f});
+		oreOutputSecondaries.put("Copper", new Object[]{getDust("gold"), .1f});
+		oreOutputSecondaries.put("Lead", new Object[]{getDust("silver"), .1f});
 		oreOutputSecondaries.put("Silver", new Object[]{"dustLead", .1f});
 		oreOutputSecondaries.put("Nickel", new Object[]{"dustPlatinum", .1f});
 
@@ -251,7 +237,7 @@ public class IERecipes
 		oreOutputSecondaries.put("Quartz", new Object[]{"dustSulfur", .15f});
 		oreOutputModifier.put("Coal", new ItemStack(Items.COAL, 4));
 
-		oreOutputSecondaries.put("Platinum", new Object[]{"dustNickel", .1f});
+		oreOutputSecondaries.put("Platinum", new Object[]{getDust("nickel"), .1f});
 		oreOutputSecondaries.put("Tungsten", new Object[]{"dustManganese", .1f});
 		oreOutputSecondaries.put("Uranium", new Object[]{"dustLead", .1f});
 		oreOutputSecondaries.put("Yellorium", new Object[]{"dustLead", .1f});
@@ -259,7 +245,7 @@ public class IERecipes
 		Item item = GameRegistry.findRegistry(Item.class).getValue(new ResourceLocation("IC2", "itemOreIridium"));
 		oreOutputSecondaries.put("Osmium", new Object[]{item, .01f});
 		oreOutputSecondaries.put("Iridium", new Object[]{"dustPlatium", .1f});
-		oreOutputSecondaries.put("FzDarkIron", new Object[]{"dustIron", .1f});
+		oreOutputSecondaries.put("FzDarkIron", new Object[]{getDust("iron"), .1f});
 		item = GameRegistry.findRegistry(Item.class).getValue(new ResourceLocation("Railcraft", "firestone.raw"));
 		if(item!=null)
 			oreOutputModifier.put("Firestone", new ItemStack(item));
@@ -326,6 +312,11 @@ public class IERecipes
 	public static ResourceLocation getStorageBlock(String type)
 	{
 		return new ResourceLocation("forge", "storage_blocks/"+type);
+	}
+
+	public static ResourceLocation getSheetmetalBlock(String type)
+	{
+		return new ResourceLocation("forge", "sheetmetal/"+type);
 	}
 
 	public static ResourceLocation getNugget(String type)
@@ -515,18 +506,10 @@ public class IERecipes
 
 	public static void addAlloyingRecipe(ItemStack output, String input0, int size0, String input1, int size1, int time)
 	{
-		boolean ingot0 = ApiUtils.isNonemptyItemTag(getIngot(input0));
-		boolean ingot1 = ApiUtils.isNonemptyItemTag(getIngot(input1));
-		boolean dust0 = ApiUtils.isNonemptyItemTag(getDust(input0));
-		boolean dust1 = ApiUtils.isNonemptyItemTag(getDust(input1));
-		if(ingot0&&ingot1)
-			AlloyRecipe.addRecipe(output, new IngredientStack(getIngot(input0), size0), new IngredientStack(getIngot(input1), size1), time);
-		if(dust0&&dust1)
-			AlloyRecipe.addRecipe(output, new IngredientStack(getDust(input0), size0), new IngredientStack(getDust(input1), size1), time);
-		if(ingot0&&dust1)
-			AlloyRecipe.addRecipe(output, new IngredientStack(getIngot(input0), size0), new IngredientStack(getDust(input1), size1), time);
-		if(dust0&&ingot1)
-			AlloyRecipe.addRecipe(output, new IngredientStack(getDust(input0), size0), new IngredientStack(getIngot(input1), size1), time);
+		AlloyRecipe.addRecipe(output, new IngredientStack(getIngot(input0), size0), new IngredientStack(getIngot(input1), size1), time);
+		AlloyRecipe.addRecipe(output, new IngredientStack(getDust(input0), size0), new IngredientStack(getDust(input1), size1), time);
+		AlloyRecipe.addRecipe(output, new IngredientStack(getIngot(input0), size0), new IngredientStack(getDust(input1), size1), time);
+		AlloyRecipe.addRecipe(output, new IngredientStack(getDust(input0), size0), new IngredientStack(getIngot(input1), size1), time);
 	}
 
 	public static HashMap<String, ItemStack> arcOutputModifier = new HashMap<>();
@@ -534,25 +517,23 @@ public class IERecipes
 
 	public static void initArcSmeltingRecipes()
 	{
-		//TODO tags rather than oredict
-		if(true) return;
 		//Steel
-		ArcFurnaceRecipe.addRecipe(new ItemStack(ingots.get(STEEL)), "ingotIron", new ItemStack(slag), 400, 512, "dustCoke");
-		ArcFurnaceRecipe.addRecipe(new ItemStack(ingots.get(STEEL)), "dustIron", new ItemStack(slag), 400, 512, "dustCoke");
+		ArcFurnaceRecipe.addRecipe(new ItemStack(ingots.get(STEEL)), getIngot("iron"), new ItemStack(slag), 400, 512, getDust("coke"));
+		ArcFurnaceRecipe.addRecipe(new ItemStack(ingots.get(STEEL)), getDust("iron"), new ItemStack(slag), 400, 512, getDust("coke"));
 		//Vanilla+IE Ores
 		for(EnumMetals metal : ores.keySet())
 			arcOutputModifier.put(metal.tagName(), new ItemStack(ingots.get(metal), 2));
 		//IE Alloys
-		addOreDictArcAlloyingRecipe(new ItemStack(ingots.get(CONSTANTAN), 2), "Copper", 100, 512, "dustNickel");
-		addOreDictArcAlloyingRecipe(new ItemStack(ingots.get(CONSTANTAN), 2), "Nickel", 100, 512, "dustCopper");
-		addOreDictArcAlloyingRecipe(new ItemStack(ingots.get(ELECTRUM), 2), "Gold", 100, 512, "dustSilver");
-		addOreDictArcAlloyingRecipe(new ItemStack(ingots.get(ELECTRUM), 2), "Silver", 100, 512, "dustGold");
+		addOreDictArcAlloyingRecipe(new ItemStack(ingots.get(CONSTANTAN), 2), "copper", 100, 512, getDust("nickel"));
+		addOreDictArcAlloyingRecipe(new ItemStack(ingots.get(CONSTANTAN), 2), "nickel", 100, 512, getDust("copper"));
+		addOreDictArcAlloyingRecipe(new ItemStack(ingots.get(ELECTRUM), 2), "gold", 100, 512, getDust("silver"));
+		addOreDictArcAlloyingRecipe(new ItemStack(ingots.get(ELECTRUM), 2), "silver", 100, 512, getDust("gold"));
 		//Common Alloys
-		addOreDictArcAlloyingRecipe(getIngot("invar"), 3, "nickel", 200, 512, "dustIron", "dustIron");
+		addOreDictArcAlloyingRecipe(getIngot("invar"), 3, "nickel", 200, 512, getDust("iron"), getDust("iron"));
 		addOreDictArcAlloyingRecipe(getIngot("bronze"), 4, "tin", 200, 512, new IngredientStack(getDust("copper"), 3));
 		addOreDictArcAlloyingRecipe(getIngot("brass"), 4, "zinc", 200, 512, new IngredientStack(getDust("copper"), 3));
-		addOreDictArcAlloyingRecipe(getIngot("blueAlloy"), 1, "silver", 100, 512, new IngredientStack(getDust("nikolite"), 4));
-		addOreDictArcAlloyingRecipe(getIngot("redAlloy"), 1, "copper", 100, 512, new IngredientStack(getDust("redstone"), 4));
+		//addOreDictArcAlloyingRecipe(getIngot("blueAlloy"), 1, "silver", 100, 512, new IngredientStack(getDust("nikolite"), 4));
+		//addOreDictArcAlloyingRecipe(getIngot("redAlloy"), 1, "copper", 100, 512, new IngredientStack(getDust("redstone"), 4));
 
 		//Recycling
 		/*TODO better, possibly tag-based system
@@ -590,9 +571,7 @@ public class IERecipes
 
 	public static void addOreDictArcAlloyingRecipe(ItemStack out, String inputName, int time, int energyPerTick, Object... additives)
 	{
-		if(ApiUtils.isNonemptyItemTag(getIngot(inputName)))
-			ArcFurnaceRecipe.addRecipe(out, getIngot(inputName), ItemStack.EMPTY, time, energyPerTick, additives).setSpecialRecipeType("Alloying");
-		if(ApiUtils.isNonemptyItemTag(getDust(inputName)))
-			ArcFurnaceRecipe.addRecipe(out, getDust(inputName), ItemStack.EMPTY, time, energyPerTick, additives).setSpecialRecipeType("Alloying");
+		ArcFurnaceRecipe.addRecipe(out, getIngot(inputName), ItemStack.EMPTY, time, energyPerTick, additives).setSpecialRecipeType("Alloying");
+		ArcFurnaceRecipe.addRecipe(out, getDust(inputName), ItemStack.EMPTY, time, energyPerTick, additives).setSpecialRecipeType("Alloying");
 	}
 }

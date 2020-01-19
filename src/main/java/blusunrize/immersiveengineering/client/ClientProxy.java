@@ -11,8 +11,6 @@ package blusunrize.immersiveengineering.client;
 import blusunrize.immersiveengineering.ImmersiveEngineering;
 import blusunrize.immersiveengineering.api.*;
 import blusunrize.immersiveengineering.api.energy.ThermoelectricHandler;
-import blusunrize.immersiveengineering.api.energy.wires.Connection;
-import blusunrize.immersiveengineering.api.energy.wires.WireType;
 import blusunrize.immersiveengineering.api.multiblocks.ManualElementMultiblock;
 import blusunrize.immersiveengineering.api.multiblocks.MultiblockHandler;
 import blusunrize.immersiveengineering.api.shader.ShaderCase;
@@ -23,11 +21,13 @@ import blusunrize.immersiveengineering.api.tool.ConveyorHandler;
 import blusunrize.immersiveengineering.api.tool.ConveyorHandler.ConveyorDirection;
 import blusunrize.immersiveengineering.api.tool.ConveyorHandler.IConveyorBelt;
 import blusunrize.immersiveengineering.api.tool.ExcavatorHandler;
-import blusunrize.immersiveengineering.client.fx.FluidSplashParticle;
+import blusunrize.immersiveengineering.api.wires.WireType;
+import blusunrize.immersiveengineering.client.font.IEFontRender;
+import blusunrize.immersiveengineering.client.font.NixieFontRender;
+import blusunrize.immersiveengineering.client.fx.FluidSplashParticle.Data;
 import blusunrize.immersiveengineering.client.fx.FractalParticle;
-import blusunrize.immersiveengineering.client.fx.IEBubbleParticle;
-import blusunrize.immersiveengineering.client.fx.SparksParticle;
-import blusunrize.immersiveengineering.client.gui.IEContainerScreen;
+import blusunrize.immersiveengineering.client.fx.IEParticles;
+import blusunrize.immersiveengineering.client.gui.*;
 import blusunrize.immersiveengineering.client.manual.IEManualInstance;
 import blusunrize.immersiveengineering.client.models.*;
 import blusunrize.immersiveengineering.client.models.connection.*;
@@ -35,6 +35,7 @@ import blusunrize.immersiveengineering.client.models.multilayer.MultiLayerLoader
 import blusunrize.immersiveengineering.client.models.obj.IEOBJLoader;
 import blusunrize.immersiveengineering.client.models.obj.IESmartObjModel;
 import blusunrize.immersiveengineering.client.render.IEBipedLayerRenderer;
+import blusunrize.immersiveengineering.client.render.IEOBJItemRenderer;
 import blusunrize.immersiveengineering.client.render.entity.*;
 import blusunrize.immersiveengineering.client.render.tile.*;
 import blusunrize.immersiveengineering.common.CommonProxy;
@@ -53,11 +54,11 @@ import blusunrize.immersiveengineering.common.blocks.wooden.ModWorkbenchTileEnti
 import blusunrize.immersiveengineering.common.blocks.wooden.WatermillTileEntity;
 import blusunrize.immersiveengineering.common.blocks.wooden.WindmillTileEntity;
 import blusunrize.immersiveengineering.common.entities.*;
+import blusunrize.immersiveengineering.common.gui.GuiHandler;
 import blusunrize.immersiveengineering.common.items.DrillheadItem.DrillHeadPerm;
 import blusunrize.immersiveengineering.common.items.IEItemInterfaces.IColouredItem;
 import blusunrize.immersiveengineering.common.items.IEItems.Misc;
 import blusunrize.immersiveengineering.common.items.IEItems.Tools;
-import blusunrize.immersiveengineering.common.items.IEItems.Weapons;
 import blusunrize.immersiveengineering.common.items.RevolverItem;
 import blusunrize.immersiveengineering.common.util.IELogger;
 import blusunrize.immersiveengineering.common.util.chickenbones.Matrix4;
@@ -69,6 +70,7 @@ import blusunrize.lib.manual.ManualEntry;
 import blusunrize.lib.manual.ManualEntry.ManualEntryBuilder;
 import blusunrize.lib.manual.ManualInstance;
 import blusunrize.lib.manual.Tree.InnerNode;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -79,7 +81,9 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.IHasContainer;
+import net.minecraft.client.gui.ScreenManager;
+import net.minecraft.client.gui.ScreenManager.IScreenFactory;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.particle.BreakingParticle;
 import net.minecraft.client.particle.Particle;
@@ -96,6 +100,8 @@ import net.minecraft.client.resources.I18n;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.inventory.container.Container;
+import net.minecraft.inventory.container.ContainerType;
 import net.minecraft.item.ArmorItem;
 import net.minecraft.item.DyeColor;
 import net.minecraft.item.Item;
@@ -108,6 +114,7 @@ import net.minecraft.state.IProperty;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.*;
 import net.minecraft.util.Direction.Axis;
+import net.minecraft.util.Direction.AxisDirection;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
@@ -127,7 +134,7 @@ import net.minecraftforge.fml.VersionChecker.Status;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.client.registry.RenderingRegistry;
 import net.minecraftforge.fml.common.Mod;
-import org.apache.commons.lang3.tuple.ImmutablePair;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.lwjgl.glfw.GLFW;
 
@@ -137,20 +144,18 @@ import java.io.InputStreamReader;
 import java.text.DecimalFormat;
 import java.util.*;
 import java.util.Map.Entry;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static blusunrize.immersiveengineering.ImmersiveEngineering.MODID;
 import static blusunrize.immersiveengineering.client.ClientUtils.mc;
 
-@SuppressWarnings("deprecation")
-@Mod.EventBusSubscriber(Dist.CLIENT)
+@Mod.EventBusSubscriber(value = Dist.CLIENT, modid = MODID, bus = Bus.MOD)
 public class ClientProxy extends CommonProxy
 {
 	public static AtlasTexture revolverTextureMap;
 	public static final ResourceLocation revolverTextureResource = new ResourceLocation("textures/atlas/immersiveengineering/revolvers.png");
-	public static FontRenderer nixieFontOptional;
-	public static FontRenderer nixieFont;
-	public static FontRenderer itemFont;
+	public static IEFontRender nixieFontOptional;
+	public static IEFontRender nixieFont;
+	public static IEFontRender itemFont;
 	public static boolean stencilBufferEnabled = false;
 	public static KeyBinding keybind_magnetEquip = new KeyBinding("key.immersiveengineering.magnetEquip", GLFW.GLFW_KEY_S, "key.categories.gameplay");
 	public static KeyBinding keybind_chemthrowerSwitch = new KeyBinding("key.immersiveengineering.chemthrowerSwitch", 0, "key.categories.gameplay");
@@ -168,17 +173,8 @@ public class ClientProxy extends CommonProxy
 		ModelLoaderRegistry.registerLoader(IEOBJLoader.instance);
 		OBJLoader.INSTANCE.addDomain("immersiveengineering");
 		IEOBJLoader.instance.addDomain("immersiveengineering");
-		MinecraftForge.EVENT_BUS.register(this);
 		MinecraftForge.EVENT_BUS.register(ImmersiveModelRegistry.instance);
 
-		ImmersiveModelRegistry.instance.registerCustomItemModel(new ItemStack(Weapons.bullet), new ImmersiveModelRegistry.ItemModelReplacement()
-		{
-			@Override
-			public IBakedModel createBakedModel(IBakedModel existingModel)
-			{
-				return new ModelItemDynamicOverride(existingModel, null);
-			}
-		});
 		ImmersiveModelRegistry.instance.registerCustomItemModel(new ItemStack(Misc.shader), new ImmersiveModelRegistry.ItemModelReplacement()
 		{
 			@Override
@@ -206,24 +202,6 @@ public class ClientProxy extends CommonProxy
 				.setTransformations(TransformType.GUI, new Matrix4().translate(-.625, .75, 0).scale(.875, .875, .875).rotate(-Math.PI*.6875, 0, 1, 0))
 				.setTransformations(TransformType.GROUND, new Matrix4().translate(.25, .5, .25).scale(.5, .5, .5)));
 
-		ImmersiveModelRegistry.instance.registerCustomItemModel(new ItemStack(Weapons.revolver), new ImmersiveModelRegistry.ItemModelReplacement_OBJ("immersiveengineering:models/item/revolver.obj", true)
-				.setTransformations(TransformType.FIRST_PERSON_RIGHT_HAND, new Matrix4().rotate(Math.toRadians(-90), 0, 1, 0).scale(.1875, .25, .25).translate(.25, .25, .5))
-				.setTransformations(TransformType.FIRST_PERSON_LEFT_HAND, new Matrix4().rotate(Math.toRadians(90), 0, 1, 0).scale(.1875, .25, .25).translate(-.3, .25, .5))
-				.setTransformations(TransformType.THIRD_PERSON_RIGHT_HAND, new Matrix4().translate(-.125, .0625, -.03125).scale(.125, .125, .125).rotate(Math.toRadians(-90), 0, 1, 0).rotate(Math.toRadians(-10), 0, 0, 1))
-				.setTransformations(TransformType.THIRD_PERSON_LEFT_HAND, new Matrix4().translate(.0, .0625, -.03125).scale(.125, .125, .125).rotate(Math.toRadians(90), 0, 1, 0).rotate(Math.toRadians(10), 0, 0, 1))
-				.setTransformations(TransformType.GUI, new Matrix4().translate(.1875, -.0781225, -.15625).scale(.2, .2, .2).rotate(Math.toRadians(-40), 0, 1, 0).rotate(Math.toRadians(-35), 0, 0, 1))
-				.setTransformations(TransformType.FIXED, new Matrix4().translate(-.375, -.25, -.0625).scale(.1875, .1875, .1875).rotate(Math.PI, 0, 1, 0).rotate(Math.toRadians(-40), 0, 0, 1))
-				.setTransformations(TransformType.GROUND, new Matrix4().translate(.125, 0, .0625).scale(.125, .125, .125)));
-
-		ImmersiveModelRegistry.instance.registerCustomItemModel(new ItemStack(Tools.drill), new ImmersiveModelRegistry.ItemModelReplacement_OBJ("immersiveengineering:models/item/drill/drill_diesel.obj", true)
-				.setTransformations(TransformType.FIRST_PERSON_RIGHT_HAND, new Matrix4().scale(.375, .4375, .375).translate(-.25, 1, .5).rotate(Math.PI*.5, 0, 1, 0))
-				.setTransformations(TransformType.FIRST_PERSON_LEFT_HAND, new Matrix4().scale(-.375, .4375, .375).translate(.25, 1, .5).rotate(-Math.PI*.5, 0, 1, 0))
-				.setTransformations(TransformType.THIRD_PERSON_RIGHT_HAND, new Matrix4().translate(.0625, .9375, .25).scale(.75, .75, .75).rotate(Math.PI*.75, 0, 1, 0).rotate(Math.PI*.375, 0, 0, 1).rotate(-Math.PI*.25, 1, 0, 0))
-				.setTransformations(TransformType.THIRD_PERSON_LEFT_HAND, new Matrix4().translate(.0625, .9375, .25).scale(-.75, .75, .75).rotate(-Math.PI*.75, 0, 1, 0).rotate(-Math.PI*.375, 0, 0, 1).rotate(-Math.PI*.25, 1, 0, 0))
-				.setTransformations(TransformType.FIXED, new Matrix4().translate(.1875, .0625, .15625).scale(.4375, .4375, .4375).rotate(-Math.PI*.25, 0, 0, 1))
-				.setTransformations(TransformType.GUI, new Matrix4().translate(-.5, .25, 0).scale(.75, .75, .75).rotate(-Math.PI*.6875, 0, 1, 0).rotate(-Math.PI*.125, 0, 0, 1))
-				.setTransformations(TransformType.GROUND, new Matrix4().translate(.125, .25, .25).scale(.5, .5, .5)));
-
 		ImmersiveModelRegistry.instance.registerCustomItemModel(new ItemStack(Misc.fluorescentTube), new ImmersiveModelRegistry.ItemModelReplacement_OBJ("immersiveengineering:models/item/fluorescent_tube.obj", true)
 				.setTransformations(TransformType.FIRST_PERSON_RIGHT_HAND, new Matrix4().translate(.2, .1, 0).rotate(-Math.PI/3, 1, 0, 0))
 				.setTransformations(TransformType.FIRST_PERSON_LEFT_HAND, new Matrix4().translate(.2, .1, 0).rotate(-Math.PI/3, 1, 0, 0))
@@ -232,24 +210,6 @@ public class ClientProxy extends CommonProxy
 				.setTransformations(TransformType.FIXED, new Matrix4())
 				.setTransformations(TransformType.GUI, new Matrix4().rotate(-Math.PI/4, 0, 0, 1).rotate(Math.PI/8, 0, 1, 0))
 				.setTransformations(TransformType.GROUND, new Matrix4().scale(.5, .5, .5).translate(0, .5, 0)));
-
-		ImmersiveModelRegistry.instance.registerCustomItemModel(new ItemStack(Weapons.chemthrower), new ImmersiveModelRegistry.ItemModelReplacement_OBJ("immersiveengineering:models/item/chemthrower.obj", true)
-				.setTransformations(TransformType.FIRST_PERSON_RIGHT_HAND, new Matrix4().scale(.375, .375, .375).translate(-.25, 1, .5).rotate(Math.PI*.5, 0, 1, 0))
-				.setTransformations(TransformType.FIRST_PERSON_LEFT_HAND, new Matrix4().scale(-.375, .375, .375).translate(-.25, 1, .5).rotate(-Math.PI*.5, 0, 1, 0))
-				.setTransformations(TransformType.THIRD_PERSON_RIGHT_HAND, new Matrix4().translate(0, .75, .1875).scale(.5, .5, .5).rotate(Math.PI*.75, 0, 1, 0).rotate(Math.PI*.375, 0, 0, 1).rotate(-Math.PI*.25, 1, 0, 0))
-				.setTransformations(TransformType.THIRD_PERSON_LEFT_HAND, new Matrix4().translate(0, .75, .1875).scale(.5, -.5, .5).rotate(Math.PI*.75, 0, 1, 0).rotate(Math.PI*.625, 0, 0, 1).rotate(-Math.PI*.25, 1, 0, 0))
-				.setTransformations(TransformType.FIXED, new Matrix4().translate(.125, .125, -.25).scale(.3125, .3125, .3125).rotate(Math.PI, 0, 1, 0).rotate(Math.PI*.25, 0, 0, 1))
-				.setTransformations(TransformType.GUI, new Matrix4().translate(-.1875, .3125, 0).scale(.4375, .4375, .4375).rotate(-Math.PI*.6875, 0, 1, 0).rotate(-Math.PI*.125, 0, 0, 1))
-				.setTransformations(TransformType.GROUND, new Matrix4().translate(0, .25, .125).scale(.25, .25, .25)));
-
-		ImmersiveModelRegistry.instance.registerCustomItemModel(new ItemStack(Weapons.railgun), new ImmersiveModelRegistry.ItemModelReplacement_OBJ("immersiveengineering:models/item/railgun.obj", true)//TODO add the fancy render back?
-				.setTransformations(TransformType.FIRST_PERSON_RIGHT_HAND, new Matrix4().scale(.125, .125, .125).translate(-.5, 1.5, .5).rotate(Math.PI*.46875, 0, 1, 0))
-				.setTransformations(TransformType.FIRST_PERSON_LEFT_HAND, new Matrix4().scale(.125, .125, .125).translate(-1.75, 1.625, .875).rotate(-Math.PI*.46875, 0, 1, 0))
-				.setTransformations(TransformType.THIRD_PERSON_RIGHT_HAND, new Matrix4().translate(.0625, .5, -.3125).scale(.1875, .1875, .1875).rotate(Math.PI*.53125, 0, 1, 0).rotate(Math.PI*.25, 0, 0, 1))
-				.setTransformations(TransformType.THIRD_PERSON_LEFT_HAND, new Matrix4().translate(-.1875, .5, -.3125).scale(.1875, .1875, .1875).rotate(-Math.PI*.46875, 0, 1, 0).rotate(-Math.PI*.25, 0, 0, 1))
-				.setTransformations(TransformType.FIXED, new Matrix4().translate(.1875, .0625, .0625).scale(.125, .125, .125).rotate(-Math.PI*.25, 0, 0, 1))
-				.setTransformations(TransformType.GUI, new Matrix4().translate(-.1875, 0, 0).scale(.1875, .1875, .1875).rotate(-Math.PI*.6875, 0, 1, 0).rotate(-Math.PI*.1875, 0, 0, 1))
-				.setTransformations(TransformType.GROUND, new Matrix4().translate(.125, .125, .0625).scale(.125, .125, .125)));
 
 		ImmersiveModelRegistry.instance.registerCustomItemModel(new ItemStack(Misc.shield), new ImmersiveModelRegistry.ItemModelReplacement_OBJ("immersiveengineering:models/item/shield.obj", true)
 				.setTransformations(TransformType.FIRST_PERSON_RIGHT_HAND, new Matrix4().rotate(Math.toRadians(90), 0, 1, 0).rotate(.1, 1, 0, 0).translate(.5, .125, .5))
@@ -266,10 +226,11 @@ public class ClientProxy extends CommonProxy
 		RenderingRegistry.registerEntityRenderingHandler(RailgunShotEntity.class, RailgunShotRenderer::new);
 		RenderingRegistry.registerEntityRenderingHandler(IEExplosiveEntity.class, IEExplosiveRenderer::new);
 		RenderingRegistry.registerEntityRenderingHandler(FluorescentTubeEntity.class, FluorescentTubeRenderer::new);
-		ModelLoaderRegistry.registerLoader(new ConnLoader());
+		ModelLoaderRegistry.registerLoader(new ConnectionLoader());
 		ModelLoaderRegistry.registerLoader(new FeedthroughLoader());
 		ModelLoaderRegistry.registerLoader(new ModelConfigurableSides.Loader());
 		ModelLoaderRegistry.registerLoader(new MultiLayerLoader());
+
 	}
 
 	@Override
@@ -313,11 +274,13 @@ public class ClientProxy extends CommonProxy
 		keybind_chemthrowerSwitch.setKeyConflictContext(KeyConflictContext.IN_GAME);
 		ClientRegistry.registerKeyBinding(keybind_chemthrowerSwitch);
 
-		//TODO
-		nixieFontOptional = ClientUtils.font();
-		nixieFont = ClientUtils.font();
-		itemFont = ClientUtils.font();
+		nixieFontOptional = new NixieFontRender(false);
+		nixieFont = new NixieFontRender(false);
+		itemFont = new IEFontRender(false);
 		TeslaCoilTileEntity.effectMap = ArrayListMultimap.create();
+
+		//TODO remove once the turntable is back, if it ever comes back
+		DynamicModelLoader.requestTexture(new ResourceLocation(ImmersiveEngineering.MODID, "block/wooden_device/turntable_bottom"));
 
 		ClientRegistry.bindTileEntitySpecialRenderer(ChargingStationTileEntity.class, new ChargingStationRenderer());
 		ClientRegistry.bindTileEntitySpecialRenderer(SampleDrillTileEntity.class, new SampleDrillRenderer());
@@ -515,9 +478,29 @@ public class ClientProxy extends CommonProxy
 		InnerNode<ResourceLocation, ManualEntry> heavyMachinesCat = ieMan.contentTree.getRoot().getOrCreateSubnode(new ResourceLocation(MODID,
 				ManualHelper.CAT_HEAVYMACHINES), 1);
 
-		ieMan.addEntry(energyCat.getOrCreateSubnode(new ResourceLocation(MODID,
-				"test"), 1), new ResourceLocation(MODID, "wiring"));
+		ieMan.addEntry(energyCat, new ResourceLocation(MODID, "wiring"));
+		ieMan.addEntry(energyCat, new ResourceLocation(MODID, "generator"));
 		ieMan.addEntry(generalCat, new ResourceLocation(MODID, "ores"));
+		ieMan.addEntry(generalCat, new ResourceLocation(MODID, "hemp"));
+		ieMan.addEntry(constructionCat, new ResourceLocation(MODID, "balloon"));
+		ieMan.addEntry(toolsCat, new ResourceLocation(MODID, "jerrycan"));
+		ieMan.addEntry(toolsCat, new ResourceLocation(MODID, "mining_drill"));
+		ieMan.addEntry(machinesCat, new ResourceLocation(MODID, "conveyors"));
+		ieMan.addEntry(machinesCat, new ResourceLocation(MODID, "external_heater"));
+		ieMan.addEntry(machinesCat, new ResourceLocation(MODID, "item_router"));
+		ieMan.addEntry(machinesCat, new ResourceLocation(MODID, "fluid_router"));
+		ieMan.addEntry(machinesCat, new ResourceLocation(MODID, "turntable"));
+		ieMan.addEntry(machinesCat, new ResourceLocation(MODID, "fluid_transport"));
+		ieMan.addEntry(machinesCat, new ResourceLocation(MODID, "charging_station"));
+		ieMan.addEntry(machinesCat, new ResourceLocation(MODID, "garden_cloche"));
+		ieMan.addEntry(machinesCat, new ResourceLocation(MODID, "tesla_coil"));
+		ieMan.addEntry(machinesCat, new ResourceLocation(MODID, "razor_wire"));
+		ieMan.addEntry(machinesCat, new ResourceLocation(MODID, "turrets"));
+		ieMan.addEntry(machinesCat, new ResourceLocation(MODID, "assembler"));
+		ieMan.addEntry(machinesCat, new ResourceLocation(MODID, "bottling_machine"));
+		ieMan.addEntry(machinesCat, new ResourceLocation(MODID, "automated_workbench"));
+		ieMan.addEntry(heavyMachinesCat, new ResourceLocation(MODID, "refinery"));
+		//TODO needs to change on world reload
 		String[][] table = formatToTable_ItemIntHashmap(ThermoelectricHandler.getThermalValuesSorted(true), "K");
 		ManualEntry.ManualEntryBuilder builder = new ManualEntry.ManualEntryBuilder(ManualHelper.getManual());
 		builder.addSpecialElement("values", 0, new ManualElementTable(ieMan, table, false));
@@ -952,9 +935,12 @@ public class ClientProxy extends CommonProxy
 	{
 	}
 
+	//TODO are these here rather than in ClientEventHandler for any particular reason???
 	@SubscribeEvent
-	public void textureStichPre(TextureStitchEvent.Pre event)
+	public static void textureStichPre(TextureStitchEvent.Pre event)
 	{
+		if(event.getMap()!=mc().getTextureMap())
+			return;
 		IELogger.info("Stitching Revolver Textures!");
 		RevolverItem.addRevolverTextures(event);
 		for(ShaderRegistry.ShaderRegistryEntry entry : ShaderRegistry.shaderRegistry.values())
@@ -965,11 +951,12 @@ public class ClientProxy extends CommonProxy
 							event.addSprite(layer.getTexture());
 
 		for(DrillHeadPerm p : DrillHeadPerm.ALL_PERMS)
-			event.addSprite(new ResourceLocation(p.texture));
-		event.addSprite(new ResourceLocation(MODID, "blocks/wire"));
-		event.addSprite(new ResourceLocation(MODID, "blocks/shaders/greyscale_fire"));
+			event.addSprite(p.texture);
+		event.addSprite(new ResourceLocation(MODID, "block/wire"));
+		event.addSprite(new ResourceLocation(MODID, "block/shaders/greyscale_fire"));
 
-		for(BulletHandler.IBullet bullet : BulletHandler.registry.values())
+		//TODO this shouldn't be necessary any more
+		for(BulletHandler.IBullet bullet : BulletHandler.getAllValues())
 			for(ResourceLocation rl : bullet.getTextures())
 				event.addSprite(rl);
 
@@ -986,32 +973,43 @@ public class ClientProxy extends CommonProxy
 		event.addSprite(SplitConveyor.texture_on);
 		event.addSprite(SplitConveyor.texture_casing);
 
-		event.addSprite(new ResourceLocation(MODID, "blocks/fluid/creosote_still"));
-		event.addSprite(new ResourceLocation(MODID, "blocks/fluid/creosote_flow"));
-		event.addSprite(new ResourceLocation(MODID, "blocks/fluid/plantoil_still"));
-		event.addSprite(new ResourceLocation(MODID, "blocks/fluid/plantoil_flow"));
-		event.addSprite(new ResourceLocation(MODID, "blocks/fluid/ethanol_still"));
-		event.addSprite(new ResourceLocation(MODID, "blocks/fluid/ethanol_flow"));
-		event.addSprite(new ResourceLocation(MODID, "blocks/fluid/biodiesel_still"));
-		event.addSprite(new ResourceLocation(MODID, "blocks/fluid/biodiesel_flow"));
-		event.addSprite(new ResourceLocation(MODID, "blocks/fluid/concrete_still"));
-		event.addSprite(new ResourceLocation(MODID, "blocks/fluid/concrete_flow"));
-		event.addSprite(new ResourceLocation(MODID, "blocks/fluid/potion_still"));
-		event.addSprite(new ResourceLocation(MODID, "blocks/fluid/potion_flow"));
-		event.addSprite(new ResourceLocation(MODID, "blocks/fluid/hot_metal_still"));
-		event.addSprite(new ResourceLocation(MODID, "blocks/fluid/hot_metal_flow"));
+		event.addSprite(new ResourceLocation(MODID, "block/fluid/creosote_still"));
+		event.addSprite(new ResourceLocation(MODID, "block/fluid/creosote_flow"));
+		event.addSprite(new ResourceLocation(MODID, "block/fluid/plantoil_still"));
+		event.addSprite(new ResourceLocation(MODID, "block/fluid/plantoil_flow"));
+		event.addSprite(new ResourceLocation(MODID, "block/fluid/ethanol_still"));
+		event.addSprite(new ResourceLocation(MODID, "block/fluid/ethanol_flow"));
+		event.addSprite(new ResourceLocation(MODID, "block/fluid/biodiesel_still"));
+		event.addSprite(new ResourceLocation(MODID, "block/fluid/biodiesel_flow"));
+		event.addSprite(new ResourceLocation(MODID, "block/fluid/concrete_still"));
+		event.addSprite(new ResourceLocation(MODID, "block/fluid/concrete_flow"));
+		event.addSprite(new ResourceLocation(MODID, "block/fluid/potion_still"));
+		event.addSprite(new ResourceLocation(MODID, "block/fluid/potion_flow"));
+		event.addSprite(new ResourceLocation(MODID, "block/fluid/hot_metal_still"));
+		event.addSprite(new ResourceLocation(MODID, "block/fluid/hot_metal_flow"));
 
 		event.addSprite(new ResourceLocation(MODID, "item/shader_slot"));
 	}
 
 	@SubscribeEvent
-	public void textureStichPost(TextureStitchEvent.Post event)
+	public static void textureStichPost(TextureStitchEvent.Post event)
 	{
-		clearRenderCaches();
+		if(event.getMap()!=mc().getTextureMap())
+			return;
+		ImmersiveEngineering.proxy.clearRenderCaches();
 		RevolverItem.retrieveRevolverTextures(event.getMap());
 		for(DrillHeadPerm p : DrillHeadPerm.ALL_PERMS)
-			p.sprite = event.getMap().getAtlasSprite(p.texture);
-		WireType.iconDefaultWire = event.getMap().getSprite(new ResourceLocation(MODID, "blocks/wire"));
+		{
+			p.sprite = event.getMap().getSprite(p.texture);
+			Preconditions.checkNotNull(p.sprite);
+		}
+		WireType.iconDefaultWire = event.getMap().getSprite(new ResourceLocation(MODID, "block/wire"));
+		AtlasTexture texturemap = Minecraft.getInstance().getTextureMap();
+		for(int i = 0; i < ClientUtils.destroyBlockIcons.length; i++)
+		{
+			ClientUtils.destroyBlockIcons[i] = texturemap.getSprite(new ResourceLocation("block/destroy_stage_"+i));
+			Preconditions.checkNotNull(ClientUtils.destroyBlockIcons[i]);
+		}
 	}
 
 	public void registerItemModel(Item item, String path, String renderCase)
@@ -1099,14 +1097,35 @@ public class ClientProxy extends CommonProxy
 	{
 		if(stack!=null&&IEConfig.MACHINES.excavator_particles.get())
 		{
+			Direction facing = tile.getFacing();
 			for(int i = 0; i < 16; i++)
 			{
-				double x = tile.getPos().getX()+.5+.1*(tile.getFacing().getAxis()==Axis.Z?2*(tile.getWorldNonnull().rand.nextGaussian()-.5): 0);
-				double y = tile.getPos().getY()+2.5;// + tile.getworld().rand.nextGaussian()/2;
-				double z = tile.getPos().getZ()+.5+.1*(tile.getFacing().getAxis()==Axis.X?2*(tile.getWorldNonnull().rand.nextGaussian()-.5): 0);
-				double mX = ((tile.getFacing()==Direction.WEST?-.075: tile.getFacing()==Direction.EAST?.075: 0)*(tile.isMirrored()?-1: 1))+((tile.getWorldNonnull().rand.nextDouble()-.5)*.01);
-				double mY = -.15D;//tile.getworld().rand.nextGaussian() * -0.05D;
-				double mZ = ((tile.getFacing()==Direction.NORTH?-.075: tile.getFacing()==Direction.SOUTH?.075: 0)*(tile.isMirrored()?-1: 1))+((tile.getWorldNonnull().rand.nextDouble()-.5)*.01);
+				double x = tile.getPos().getX()+.5;
+				if(facing.getAxis()==Axis.Z)
+					x += .1*(2*(tile.getWorldNonnull().rand.nextDouble()-.5));
+				else
+					x -= .5*facing.getAxisDirection().getOffset();
+				double y = tile.getPos().getY()+2.5;
+				double z = tile.getPos().getZ()+.5+.1*0;
+				if(tile.getFacing().getAxis()==Axis.X)
+					z += .1*(2*(tile.getWorldNonnull().rand.nextGaussian()-.5));
+				else
+					z -= .5*facing.getAxisDirection().getOffset();
+				double mX = (tile.getWorldNonnull().rand.nextDouble()-.5)*.01;
+				;
+				if(facing.getAxis()==Axis.X)
+				{
+					int sign = (tile.getIsMirrored()^facing.getAxisDirection()==AxisDirection.NEGATIVE)?1: -1;
+					mX += .075*sign;
+				}
+				double mY = tile.getWorld().rand.nextDouble()*-0.05D;
+				double mZ = (tile.getWorldNonnull().rand.nextDouble()-.5)*.01;
+				;
+				if(facing.getAxis()==Axis.Z)
+				{
+					int sign = (tile.getIsMirrored()^facing.getAxisDirection()==AxisDirection.NEGATIVE)?1: -1;
+					mZ += .075*sign;
+				}
 
 				Particle particle = new BreakingParticle.Factory().makeParticle(new ItemParticleData(ParticleTypes.ITEM, stack),
 						tile.getWorldNonnull(), x, y, z, mX, mY, mZ);
@@ -1115,13 +1134,7 @@ public class ClientProxy extends CommonProxy
 		}
 	}
 
-	@Override
-	public void spawnSparkFX(World world, double x, double y, double z, double mx, double my, double mz)
-	{
-		Particle particle = new SparksParticle(world, x, y, z, mx, my, mz);
-		Minecraft.getInstance().particles.addEffect(particle);
-	}
-
+	//TODO move to commonProxy or even use directly
 	@Override
 	public void spawnRedstoneFX(World world, double x, double y, double z, double mx, double my, double mz, float size, float r, float g, float b)
 	{
@@ -1131,16 +1144,13 @@ public class ClientProxy extends CommonProxy
 	@Override
 	public void spawnFluidSplashFX(World world, FluidStack fs, double x, double y, double z, double mx, double my, double mz)
 	{
-		FluidSplashParticle particle = new FluidSplashParticle(world, x, y, z, mx, my, mz);
-		particle.setFluidTexture(fs);
-		mc().particles.addEffect(particle);
+		world.addParticle(new Data(fs.getFluid()), x, y, z, mx, my, mz);
 	}
 
 	@Override
 	public void spawnBubbleFX(World world, FluidStack fs, double x, double y, double z, double mx, double my, double mz)
 	{
-		IEBubbleParticle particle = new IEBubbleParticle(world, x, y, z, mx, my, mz);
-		mc().particles.addEffect(particle);
+		world.addParticle(IEParticles.IE_BUBBLE, x, y, z, mx, my, mz);
 	}
 
 	@Override
@@ -1148,8 +1158,8 @@ public class ClientProxy extends CommonProxy
 	{
 		if(prefixColour >= 0)
 			colour = prefixColour==1?FractalParticle.COLOUR_ORANGE: prefixColour==2?FractalParticle.COLOUR_RED: FractalParticle.COLOUR_LIGHTNING;
-		FractalParticle particle = new FractalParticle(world, x, y, z, direction, scale, colour[0], colour[1]);
-		mc().particles.addEffect(particle);
+		FractalParticle.Data particle = new FractalParticle.Data(direction, scale, 10, 16, colour[0], colour[1]);
+		world.addParticle(particle, x, y, z, 0, 0, 0);
 	}
 
 	@Override
@@ -1320,21 +1330,14 @@ public class ClientProxy extends CommonProxy
 	{
 		//TODO
 		for(BlockRenderLayer r : BlockRenderLayer.values())
-			ConnModelReal.cache.invalidate(new RenderCacheKey(state, r));
-		ConnModelReal.cache.invalidate(new RenderCacheKey(state, null));
+			BakedConnectionModel.cache.invalidate(new RenderCacheKey(state, r));
+		BakedConnectionModel.cache.invalidate(new RenderCacheKey(state, null));
 	}
 
 	@Override
 	public void clearConnectionModelCache()
 	{
-		ConnModelReal.cache.invalidateAll();
-	}
-
-	@Override
-	public void addFailedConnection(Connection connection, BlockPos reason, PlayerEntity player)
-	{
-		ClientEventHandler.FAILED_CONNECTIONS.put(connection,
-				new ImmutablePair<>(reason, new AtomicInteger(200)));
+		BakedConnectionModel.cache.invalidateAll();
 	}
 
 	@Override
@@ -1348,7 +1351,7 @@ public class ClientProxy extends CommonProxy
 	{
 		IEApi.renderCacheClearers.add(IESmartObjModel.modelCache::clear);
 		IEApi.renderCacheClearers.add(IESmartObjModel.cachedBakedItemModels::invalidateAll);
-		IEApi.renderCacheClearers.add(ConnModelReal.cache::invalidateAll);
+		IEApi.renderCacheClearers.add(BakedConnectionModel.cache::invalidateAll);
 		IEApi.renderCacheClearers.add(ModelConveyor.modelCache::clear);
 		IEApi.renderCacheClearers.add(ModelConfigurableSides.modelCache::invalidateAll);
 		IEApi.renderCacheClearers.add(FluidPipeTileEntity.cachedOBJStates::clear);
@@ -1374,5 +1377,53 @@ public class ClientProxy extends CommonProxy
 	{
 		Minecraft.getInstance().getSoundHandler().play(new SkyhookSound(hook,
 				new ResourceLocation(MODID, "skyhook")));
+	}
+
+	@Override
+	public void openManual()
+	{
+		Minecraft.getInstance().displayGuiScreen(ManualHelper.getManual().getGui());
+	}
+
+	@Override
+	public void registerContainersAndScreens()
+	{
+		super.registerContainersAndScreens();
+		registerScreen(Lib.GUIID_CokeOven, CokeOvenScreen::new);
+		registerScreen(Lib.GUIID_AlloySmelter, AlloySmelterScreen::new);
+		registerScreen(Lib.GUIID_BlastFurnace, BlastFurnaceScreen::new);
+		registerScreen(Lib.GUIID_WoodenCrate, CrateScreen::new);
+		registerScreen(Lib.GUIID_Workbench, ModWorkbenchScreen::new);
+		registerScreen(Lib.GUIID_Assembler, AssemblerScreen::new);
+		registerScreen(Lib.GUIID_Sorter, SorterScreen::new);
+		registerScreen(Lib.GUIID_Squeezer, SqueezerScreen::new);
+		registerScreen(Lib.GUIID_Fermenter, FermenterScreen::new);
+		registerScreen(Lib.GUIID_Refinery, RefineryScreen::new);
+		registerScreen(Lib.GUIID_ArcFurnace, ArcFurnaceScreen::new);
+		registerScreen(Lib.GUIID_AutoWorkbench, AutoWorkbenchScreen::new);
+		registerScreen(Lib.GUIID_Mixer, MixerScreen::new);
+		registerScreen(Lib.GUIID_Turret_Gun, GunTurretScreen::new);
+		registerScreen(Lib.GUIID_Turret_Chem, ChemTurretScreen::new);
+		registerScreen(Lib.GUIID_FluidSorter, FluidSorterScreen::new);
+		registerScreen(Lib.GUIID_Belljar, BelljarScreen::new);
+		registerScreen(Lib.GUIID_ToolboxBlock, ToolboxBlockScreen::new);
+
+		registerScreen(Lib.GUIID_Toolbox, ToolboxScreen::new);
+		registerScreen(Lib.GUIID_Revolver, RevolverScreen::new);
+		registerScreen(Lib.GUIID_MaintenanceKit, MaintenanceKitScreen::new);
+	}
+
+
+	public <C extends Container, S extends Screen & IHasContainer<C>>
+	void registerScreen(ResourceLocation containerName, IScreenFactory<C, S> factory)
+	{
+		ContainerType<C> type = (ContainerType<C>)GuiHandler.getContainerType(containerName);
+		ScreenManager.registerFactory(type, factory);
+	}
+
+	@Override
+	public Item.Properties useIEOBJRenderer(Item.Properties props)
+	{
+		return super.useIEOBJRenderer(props).setTEISR(() -> () -> IEOBJItemRenderer.INSTANCE);
 	}
 }

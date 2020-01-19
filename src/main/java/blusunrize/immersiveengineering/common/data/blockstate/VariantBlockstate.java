@@ -63,10 +63,11 @@ public class VariantBlockstate implements BlockstateGenerator.IVariantModelGener
 			return this;
 		}
 
-		public <T extends Comparable<T>> Builder setForAllWithState(Map<IProperty<?>, ?> partialState, ConfiguredModel model)
+		public Builder setForAllWithState(Map<IProperty<?>, Object> partialState, ConfiguredModel model)
 		{
 			Preconditions.checkNotNull(partialState);
-			Preconditions.checkArgument(b.getStateContainer().getProperties().containsAll(partialState.keySet()));
+			Preconditions.checkArgument(b.getStateContainer().getProperties().containsAll(partialState.keySet()),
+					partialState.keySet()+" does not match "+b.getStateContainer().getProperties());
 			return setForAllMatching(blockState -> {
 				for(IProperty<?> prop : partialState.keySet())
 					if(blockState.get(prop)!=partialState.get(prop))
@@ -78,7 +79,7 @@ public class VariantBlockstate implements BlockstateGenerator.IVariantModelGener
 		public VariantBlockstate build()
 		{
 			for(BlockState state : b.getStateContainer().getValidStates())
-				Preconditions.checkArgument(models.containsKey(state));
+				Preconditions.checkArgument(models.containsKey(state), "Missing state "+state);
 			return new VariantBlockstate(models);
 		}
 	}

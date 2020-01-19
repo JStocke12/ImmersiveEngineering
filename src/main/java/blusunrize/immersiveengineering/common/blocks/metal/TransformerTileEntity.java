@@ -10,16 +10,17 @@ package blusunrize.immersiveengineering.common.blocks.metal;
 
 import blusunrize.immersiveengineering.api.ApiUtils;
 import blusunrize.immersiveengineering.api.IEProperties;
-import blusunrize.immersiveengineering.api.IEProperties.PropertyBoolInverted;
 import blusunrize.immersiveengineering.api.TargetingInfo;
-import blusunrize.immersiveengineering.api.energy.wires.*;
-import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.*;
+import blusunrize.immersiveengineering.api.wires.*;
+import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IAdvancedSelectionBounds;
+import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IHasDummyBlocks;
+import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IMirrorAble;
+import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IStateBasedDirectional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.BlockItemUseContext;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.state.EnumProperty;
@@ -27,19 +28,21 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.Direction;
 import net.minecraft.util.Direction.Axis;
-import net.minecraft.util.math.*;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.Vec3i;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
-import static blusunrize.immersiveengineering.api.energy.wires.WireType.MV_CATEGORY;
+import static blusunrize.immersiveengineering.api.wires.WireType.MV_CATEGORY;
 
 public class TransformerTileEntity extends ImmersiveConnectableTileEntity implements IStateBasedDirectional, IMirrorAble,
-		IHasDummyBlocks, IAdvancedSelectionBounds, IDualState
+		IHasDummyBlocks, IAdvancedSelectionBounds
 {
 	public static TileEntityType<TransformerTileEntity> TYPE;
 	private static final int RIGHT_INDEX = 0;
@@ -262,17 +265,6 @@ public class TransformerTileEntity extends ImmersiveConnectableTileEntity implem
 	}
 
 	@Override
-	public PropertyBoolInverted getBoolProperty(Class<? extends IUsesBooleanProperty> inf)
-	{
-		if(inf==IMirrorAble.class)
-			return IEProperties.MIRRORED;
-		else if(inf==IDualState.class)
-			return IEProperties.IS_SECOND_STATE;
-		else
-			return null;
-	}
-
-	@Override
 	public boolean getIsMirrored()
 	{
 		if(onPost)
@@ -290,6 +282,12 @@ public class TransformerTileEntity extends ImmersiveConnectableTileEntity implem
 			return (rightType!=null&&higher.equals(rightType.getCategory()))||
 					(leftType!=null&&!higher.equals(leftType.getCategory()));
 		}
+	}
+
+	@Override
+	public void setMirrored(boolean mirrored)
+	{
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
@@ -400,23 +398,11 @@ public class TransformerTileEntity extends ImmersiveConnectableTileEntity implem
 	}
 
 	@Override
-	public boolean isOverrideBox(AxisAlignedBB box, PlayerEntity player, RayTraceResult mop, ArrayList<AxisAlignedBB> list)
-	{
-		return box.grow(.002).contains(mop.getHitVec());
-	}
-
-	@Override
 	public Set<BlockPos> getIgnored(IImmersiveConnectable other)
 	{
 		if(onPost)
 			return super.getIgnored(other);
 		return ImmutableSet.of(pos.up(2));
-	}
-
-	@Override
-	public boolean getIsSecondState()
-	{
-		return onPost;
 	}
 
 	protected float getLowerOffset()

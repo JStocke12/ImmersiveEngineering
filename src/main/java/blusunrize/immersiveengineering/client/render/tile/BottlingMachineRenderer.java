@@ -8,7 +8,7 @@
 
 package blusunrize.immersiveengineering.client.render.tile;
 
-import blusunrize.immersiveengineering.api.IEProperties;
+import blusunrize.immersiveengineering.ImmersiveEngineering;
 import blusunrize.immersiveengineering.api.IEProperties.Model;
 import blusunrize.immersiveengineering.client.ClientProxy;
 import blusunrize.immersiveengineering.client.ClientUtils;
@@ -16,7 +16,6 @@ import blusunrize.immersiveengineering.client.utils.SinglePropertyModelData;
 import blusunrize.immersiveengineering.common.blocks.IEBlocks.Multiblocks;
 import blusunrize.immersiveengineering.common.blocks.metal.BottlingMachineTileEntity;
 import blusunrize.immersiveengineering.common.blocks.metal.BottlingMachineTileEntity.BottlingProcess;
-import blusunrize.immersiveengineering.common.util.Utils;
 import com.mojang.blaze3d.platform.GlStateManager;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.Minecraft;
@@ -29,6 +28,8 @@ import net.minecraft.client.renderer.model.ItemCameraTransforms.TransformType;
 import net.minecraft.client.renderer.tileentity.TileEntityRenderer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.Direction;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraftforge.client.model.data.IModelData;
@@ -40,20 +41,23 @@ import java.util.Arrays;
 
 public class BottlingMachineRenderer extends TileEntityRenderer<BottlingMachineTileEntity>
 {
+	private final DynamicModel<Direction> dynamic = DynamicModel.createSided(
+			new ResourceLocation(ImmersiveEngineering.MODID, "block/metal_multiblock/bottling_machine_animated.obj.ie"),
+			"bottling_machine");
+
 	@Override
 	public void render(BottlingMachineTileEntity te, double x, double y, double z, float partialTicks, int destroyStage)
 	{
 		if(!te.formed||te.isDummy()||!te.getWorldNonnull().isBlockLoaded(te.getPos()))
 			return;
 
-		//Grab model + correct eextended state
+		//Grab model
 		final BlockRendererDispatcher blockRenderer = Minecraft.getInstance().getBlockRendererDispatcher();
 		BlockPos blockPos = te.getPos();
 		BlockState state = getWorld().getBlockState(blockPos);
 		if(state.getBlock()!=Multiblocks.bottlingMachine)
 			return;
-		state = state.with(IEProperties.DYNAMICRENDER, true);
-		IBakedModel model = blockRenderer.getBlockModelShapes().getModel(state);
+		IBakedModel model = dynamic.get(te.getFacing());
 
 		//Initialize Tesselator and BufferBuilder
 		Tessellator tessellator = Tessellator.getInstance();
@@ -61,7 +65,7 @@ public class BottlingMachineRenderer extends TileEntityRenderer<BottlingMachineT
 		//Outer GL Wrapping, initial translation
 		GlStateManager.pushMatrix();
 		GlStateManager.translated(x+.5, y+.5, z+.5);
-		if(te.isMirrored())
+		if(te.getIsMirrored())
 			GlStateManager.scalef(te.getFacing().getXOffset()==0?-1: 1, 1, te.getFacing().getZOffset()==0?-1: 1);
 
 		//Item Displacement
@@ -123,21 +127,6 @@ public class BottlingMachineRenderer extends TileEntityRenderer<BottlingMachineT
 
 		RenderHelper.enableStandardItemLighting();
 		GlStateManager.popMatrix();
-
-		switch(te.getFacing())
-		{
-			case NORTH:
-				break;
-			case SOUTH:
-				GlStateManager.rotatef(180, 0, 1, 0);
-				break;
-			case WEST:
-				GlStateManager.rotatef(90, 0, 1, 0);
-				break;
-			case EAST:
-				GlStateManager.rotatef(-90, 0, 1, 0);
-				break;
-		}
 
 		float scale = .0625f;
 		FluidStack fs = te.tanks[0].getFluid();
@@ -251,7 +240,7 @@ public class BottlingMachineRenderer extends TileEntityRenderer<BottlingMachineT
 		worldRenderer.begin(GL11.GL_QUADS, DefaultVertexFormats.BLOCK);
 		worldRenderer.setTranslation(-.5-pos.getX(), -.5-pos.getY(), -.5-pos.getZ());
 		worldRenderer.color(255, 255, 255, 255);
-		blockRenderer.getBlockModelRenderer().renderModel(world, model, state, pos, worldRenderer, true, Utils.RAND, 0,
+		blockRenderer.getBlockModelRenderer().renderModel(world, model, state, pos, worldRenderer, true, world.rand, 0,
 				data);
 		worldRenderer.setTranslation(0.0D, 0.0D, 0.0D);
 		tessellator.draw();

@@ -9,11 +9,11 @@
 package blusunrize.immersiveengineering.common.blocks.metal;
 
 import blusunrize.immersiveengineering.api.IEProperties;
-import blusunrize.immersiveengineering.api.energy.wires.Connection;
-import blusunrize.immersiveengineering.api.energy.wires.ConnectionPoint;
-import blusunrize.immersiveengineering.api.energy.wires.ImmersiveConnectableTileEntity;
-import blusunrize.immersiveengineering.api.energy.wires.WireType;
-import blusunrize.immersiveengineering.api.energy.wires.localhandlers.EnergyTransferHandler.EnergyConnector;
+import blusunrize.immersiveengineering.api.wires.Connection;
+import blusunrize.immersiveengineering.api.wires.ConnectionPoint;
+import blusunrize.immersiveengineering.api.wires.ImmersiveConnectableTileEntity;
+import blusunrize.immersiveengineering.api.wires.WireType;
+import blusunrize.immersiveengineering.api.wires.localhandlers.EnergyTransferHandler.EnergyConnector;
 import blusunrize.immersiveengineering.client.models.IOBJModelCallback;
 import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IAdvancedCollisionBounds;
 import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IStateBasedDirectional;
@@ -107,7 +107,7 @@ public class RazorWireTileEntity extends ImmersiveConnectableTileEntity implemen
 	}
 
 	@Override
-	public List<AxisAlignedBB> getAdvancedColisionBounds()
+	public List<AxisAlignedBB> getAdvancedCollisionBounds()
 	{
 		boolean wallL = renderWall(true);
 		boolean wallR = renderWall(false);
@@ -115,9 +115,9 @@ public class RazorWireTileEntity extends ImmersiveConnectableTileEntity implemen
 			return Collections.singletonList(null);
 		List<AxisAlignedBB> list = new ArrayList<>(wallL&&wallR?2: 1);
 		if(wallL)
-			list.add(new AxisAlignedBB(getFacing()==Direction.SOUTH?.8125: 0, 0, getFacing()==Direction.WEST?.8125: 0, getFacing()==Direction.NORTH?.1875: 1, 1, getFacing()==Direction.EAST?.1875: 1).offset(getPos()));
+			list.add(new AxisAlignedBB(getFacing()==Direction.SOUTH?.8125: 0, 0, getFacing()==Direction.WEST?.8125: 0, getFacing()==Direction.NORTH?.1875: 1, 1, getFacing()==Direction.EAST?.1875: 1));
 		if(wallR)
-			list.add(new AxisAlignedBB(getFacing()==Direction.NORTH?.8125: 0, 0, getFacing()==Direction.EAST?.8125: 0, getFacing()==Direction.SOUTH?.1875: 1, 1, getFacing()==Direction.WEST?.1875: 1).offset(getPos()));
+			list.add(new AxisAlignedBB(getFacing()==Direction.NORTH?.8125: 0, 0, getFacing()==Direction.EAST?.8125: 0, getFacing()==Direction.SOUTH?.1875: 1, 1, getFacing()==Direction.WEST?.1875: 1));
 		return list;
 	}
 

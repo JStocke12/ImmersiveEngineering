@@ -9,9 +9,9 @@
 package blusunrize.immersiveengineering;
 
 import blusunrize.immersiveengineering.api.IEApi;
-import blusunrize.immersiveengineering.api.energy.wires.WireType;
 import blusunrize.immersiveengineering.api.shader.ShaderRegistry;
 import blusunrize.immersiveengineering.api.tool.ExcavatorHandler;
+import blusunrize.immersiveengineering.api.wires.WireType;
 import blusunrize.immersiveengineering.client.ClientProxy;
 import blusunrize.immersiveengineering.common.*;
 import blusunrize.immersiveengineering.common.items.IEItems.Misc;
@@ -19,6 +19,7 @@ import blusunrize.immersiveengineering.common.items.RevolverItem;
 import blusunrize.immersiveengineering.common.network.*;
 import blusunrize.immersiveengineering.common.util.IEIMCHandler;
 import blusunrize.immersiveengineering.common.util.IELogger;
+import blusunrize.immersiveengineering.common.util.RecipeSerializers;
 import blusunrize.immersiveengineering.common.util.advancements.IEAdvancements;
 import blusunrize.immersiveengineering.common.util.commands.CommandHandler;
 import blusunrize.immersiveengineering.common.util.compat.IECompatModule;
@@ -28,6 +29,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonStreamParser;
 import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
+import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.dimension.DimensionType;
 import net.minecraft.world.server.ServerWorld;
@@ -49,6 +51,7 @@ import org.apache.logging.log4j.LogManager;
 import javax.annotation.Nonnull;
 import java.io.InputStreamReader;
 import java.net.URL;
+import java.util.function.Function;
 
 @Mod(ImmersiveEngineering.MODID)
 public class ImmersiveEngineering
@@ -74,16 +77,12 @@ public class ImmersiveEngineering
 		FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
 		FMLJavaModLoadingContext.get().getModEventBus().addListener(this::loadComplete);
 		FMLJavaModLoadingContext.get().getModEventBus().addListener(this::wrongSignature);
-		//TODO right bus?
-		FMLJavaModLoadingContext.get().getModEventBus().addListener(this::serverStarting);
-		FMLJavaModLoadingContext.get().getModEventBus().addListener(this::serverStarted);
+		MinecraftForge.EVENT_BUS.addListener(this::serverStarting);
+		MinecraftForge.EVENT_BUS.addListener(this::serverStarted);
+		RecipeSerializers.RECIPE_SERIALIZERS.register(FMLJavaModLoadingContext.get().getModEventBus());
 		//TODO separate client/server config?
 		ModLoadingContext.get().registerConfig(Type.COMMON, IEConfig.ALL);
 		IEContent.modConstruction();
-	}
-
-	static
-	{
 		//TODO FluidRegistry.enableUniversalBucket();
 	}
 
@@ -91,7 +90,6 @@ public class ImmersiveEngineering
 	{
 		//Previously in PREINIT
 
-		IEContent.preInit();
 		proxy.preInit();
 
 		IEAdvancements.preInit();
@@ -112,8 +110,6 @@ public class ImmersiveEngineering
 
 		new ThreadContributorSpecialsDownloader();
 
-		IEContent.preInitEnd();
-
 		//Previously in INIT
 
 		proxy.preInitEnd();
@@ -128,43 +124,24 @@ public class ImmersiveEngineering
 
 		IECompatModule.doModulesInit();
 		proxy.initEnd();
-		int messageId = 0;
-		packetHandler.registerMessage(messageId++, MessageMineralListSync.class, MessageMineralListSync::toBytes,
-				MessageMineralListSync::new, MessageMineralListSync::process);
-		packetHandler.registerMessage(messageId++, MessageTileSync.class, MessageTileSync::toBytes,
-				MessageTileSync::new, MessageTileSync::process);
-		packetHandler.registerMessage(messageId++, MessageTileSync.class, MessageTileSync::toBytes,
-				MessageTileSync::new, MessageTileSync::process);
-		packetHandler.registerMessage(messageId++, MessageSpeedloaderSync.class, MessageSpeedloaderSync::toBytes,
-				MessageSpeedloaderSync::new, MessageSpeedloaderSync::process);
-		packetHandler.registerMessage(messageId++, MessageSkyhookSync.class, MessageSkyhookSync::toBytes,
-				MessageSkyhookSync::new, MessageSkyhookSync::process);
-		packetHandler.registerMessage(messageId++, MessageMinecartShaderSync.class, MessageMinecartShaderSync::toBytes,
-				MessageMinecartShaderSync::new, MessageMinecartShaderSync::process);
-		packetHandler.registerMessage(messageId++, MessageMinecartShaderSync.class, MessageMinecartShaderSync::toBytes,
-				MessageMinecartShaderSync::new, MessageMinecartShaderSync::process);
-		packetHandler.registerMessage(messageId++, MessageRequestBlockUpdate.class, MessageRequestBlockUpdate::toBytes,
-				MessageRequestBlockUpdate::new, MessageRequestBlockUpdate::process);
-		packetHandler.registerMessage(messageId++, MessageNoSpamChatComponents.class, MessageNoSpamChatComponents::toBytes,
-				MessageNoSpamChatComponents::new, MessageNoSpamChatComponents::process);
-		packetHandler.registerMessage(messageId++, MessageShaderManual.class, MessageShaderManual::toBytes,
-				MessageShaderManual::new, MessageShaderManual::process);
-		packetHandler.registerMessage(messageId++, MessageShaderManual.class, MessageShaderManual::toBytes,
-				MessageShaderManual::new, MessageShaderManual::process);
-		packetHandler.registerMessage(messageId++, MessageBirthdayParty.class, MessageBirthdayParty::toBytes,
-				MessageBirthdayParty::new, MessageBirthdayParty::process);
-		packetHandler.registerMessage(messageId++, MessageMagnetEquip.class, MessageMagnetEquip::toBytes,
-				MessageMagnetEquip::new, MessageMagnetEquip::process);
-		packetHandler.registerMessage(messageId++, MessageChemthrowerSwitch.class, MessageChemthrowerSwitch::toBytes,
-				MessageChemthrowerSwitch::new, MessageChemthrowerSwitch::process);
-		packetHandler.registerMessage(messageId++, MessageObstructedConnection.class, MessageObstructedConnection::toBytes,
-				MessageObstructedConnection::new, MessageObstructedConnection::process);
-		packetHandler.registerMessage(messageId++, MessageSetGhostSlots.class, MessageSetGhostSlots::toBytes,
-				MessageSetGhostSlots::new, MessageSetGhostSlots::process);
-		packetHandler.registerMessage(messageId++, MessageWireSync.class, MessageWireSync::toBytes,
-				MessageWireSync::new, MessageWireSync::process);
-		packetHandler.registerMessage(messageId++, MessageMaintenanceKit.class, MessageMaintenanceKit::toBytes,
-				MessageMaintenanceKit::new, MessageMaintenanceKit::process);
+		registerMessage(MessageMineralListSync.class, MessageMineralListSync::new);
+		registerMessage(MessageTileSync.class, MessageTileSync::new);
+		registerMessage(MessageTileSync.class, MessageTileSync::new);
+		registerMessage(MessageSpeedloaderSync.class, MessageSpeedloaderSync::new);
+		registerMessage(MessageSkyhookSync.class, MessageSkyhookSync::new);
+		registerMessage(MessageMinecartShaderSync.class, MessageMinecartShaderSync::new);
+		registerMessage(MessageMinecartShaderSync.class, MessageMinecartShaderSync::new);
+		registerMessage(MessageRequestBlockUpdate.class, MessageRequestBlockUpdate::new);
+		registerMessage(MessageNoSpamChatComponents.class, MessageNoSpamChatComponents::new);
+		registerMessage(MessageShaderManual.class, MessageShaderManual::new);
+		registerMessage(MessageShaderManual.class, MessageShaderManual::new);
+		registerMessage(MessageBirthdayParty.class, MessageBirthdayParty::new);
+		registerMessage(MessageMagnetEquip.class, MessageMagnetEquip::new);
+		registerMessage(MessageChemthrowerSwitch.class, MessageChemthrowerSwitch::new);
+		registerMessage(MessageObstructedConnection.class, MessageObstructedConnection::new);
+		registerMessage(MessageSetGhostSlots.class, MessageSetGhostSlots::new);
+		registerMessage(MessageWireSync.class, MessageWireSync::new);
+		registerMessage(MessageMaintenanceKit.class, MessageMaintenanceKit::new);
 
 		IEIMCHandler.init();
 		//TODO IEIMCHandler.handleIMCMessages(FMLInterModComms.fetchRuntimeMessages(this));
@@ -172,11 +149,20 @@ public class ImmersiveEngineering
 		//Previously in POSTINIT
 
 		IEContent.postInit();
-		ExcavatorHandler.recalculateChances(true);
 		proxy.postInit();
 		IECompatModule.doModulesPostInit();
 		proxy.postInitEnd();
 		ShaderRegistry.compileWeight();
+	}
+
+	private int messageId = 0;
+
+	private <T extends IMessage> void registerMessage(Class<T> packetType, Function<PacketBuffer, T> decoder)
+	{
+		packetHandler.registerMessage(messageId++, packetType, IMessage::toBytes, decoder, (t, ctx) -> {
+			t.process(ctx);
+			ctx.get().setPacketHandled(true);
+		});
 	}
 
 	public void loadComplete(FMLLoadCompleteEvent event)
@@ -189,6 +175,7 @@ public class ImmersiveEngineering
 			"MavenKeyHere"//TODO maven
 	};
 
+	//TODO doesn't seem to be fired any more?
 	public void wrongSignature(FMLFingerprintViolationEvent event)
 	{
 		System.out.println("[Immersive Engineering/Error] THIS IS NOT AN OFFICIAL BUILD OF IMMERSIVE ENGINEERING! Found these fingerprints: "+event.getFingerprints());
@@ -200,7 +187,6 @@ public class ImmersiveEngineering
 				break;
 			}
 	}
-
 
 	public void serverStarting(FMLServerStartingEvent event)
 	{
@@ -217,11 +203,12 @@ public class ImmersiveEngineering
 			ServerWorld world = event.getServer().getWorld(DimensionType.OVERWORLD);
 			if(!world.isRemote)
 			{
-				IESaveData worldData = world.getSavedData().get(IESaveData::new, IESaveData.dataName);
+				IESaveData worldData = world.getSavedData().getOrCreate(IESaveData::new, IESaveData.dataName);
 				IESaveData.setInstance(worldData);
 			}
 		}
 		IEContent.refreshFluidReferences();
+		ExcavatorHandler.recalculateChances(true);
 	}
 
 	public static ItemGroup itemGroup = new ItemGroup(MODID)
@@ -275,8 +262,7 @@ public class ImmersiveEngineering
 				}
 			} catch(Exception e)
 			{
-				IELogger.info("Could not load contributor+special revolver list.");
-				e.printStackTrace();
+				IELogger.logger.info("Could not load contributor+special revolver list.", e);
 			}
 		}
 	}

@@ -30,7 +30,6 @@ import net.minecraft.util.Direction;
 import net.minecraft.util.Hand;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import net.minecraftforge.common.capabilities.Capability;
@@ -135,7 +134,7 @@ public class ConveyorBeltTileEntity extends IEBaseTileEntity implements IDirecti
 	}
 
 	@Override
-	public boolean isLogicDummy()
+	public boolean isDummy()
 	{
 		return this.conveyorBeltSubtype!=null&&!this.conveyorBeltSubtype.isTicking();
 	}
@@ -149,7 +148,7 @@ public class ConveyorBeltTileEntity extends IEBaseTileEntity implements IDirecti
 	}
 
 	@Override
-	public boolean hammerUseSide(Direction side, PlayerEntity player, float hitX, float hitY, float hitZ)
+	public boolean hammerUseSide(Direction side, PlayerEntity player, Vec3d hitVec)
 	{
 		if(player.isSneaking()&&conveyorBeltSubtype!=null&&conveyorBeltSubtype.changeConveyorDirection())
 		{
@@ -163,9 +162,12 @@ public class ConveyorBeltTileEntity extends IEBaseTileEntity implements IDirecti
 //			else
 //				transportUp = true;
 
-			this.markDirty();
-			this.markContainingBlockForUpdate(null);
-			world.addBlockEvent(getPos(), this.getBlockState().getBlock(), 0, 0);
+			if(!world.isRemote)
+			{
+				this.markDirty();
+				this.markContainingBlockForUpdate(null);
+				world.addBlockEvent(getPos(), this.getBlockState().getBlock(), 0, 0);
+			}
 			return true;
 		}
 		return false;
@@ -205,7 +207,7 @@ public class ConveyorBeltTileEntity extends IEBaseTileEntity implements IDirecti
 			new AxisAlignedBB(0, 0, 0, 1, .125F, 1);
 
 	@Override
-	public List<AxisAlignedBB> getAdvancedColisionBounds()
+	public List<AxisAlignedBB> getAdvancedCollisionBounds()
 	{
 		if(conveyorBeltSubtype!=null)
 			return new ArrayList<>(conveyorBeltSubtype.getColisionBoxes());
@@ -218,12 +220,6 @@ public class ConveyorBeltTileEntity extends IEBaseTileEntity implements IDirecti
 		if(conveyorBeltSubtype!=null)
 			return new ArrayList<>(conveyorBeltSubtype.getSelectionBoxes());
 		return Lists.newArrayList(COLISIONBB);
-	}
-
-	@Override
-	public boolean isOverrideBox(AxisAlignedBB box, PlayerEntity player, RayTraceResult mop, ArrayList<AxisAlignedBB> list)
-	{
-		return false;
 	}
 
 	private LazyOptional<IItemHandler> insertionCap = registerCap(() -> new ConveyorInventoryHandler(this));

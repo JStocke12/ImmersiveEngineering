@@ -8,7 +8,7 @@
 
 package blusunrize.immersiveengineering.common.blocks.metal;
 
-import blusunrize.immersiveengineering.api.IEEnums.SideConfig;
+import blusunrize.immersiveengineering.api.IEEnums.IOSideConfig;
 import blusunrize.immersiveengineering.api.energy.ThermoelectricHandler;
 import blusunrize.immersiveengineering.common.IEConfig;
 import blusunrize.immersiveengineering.common.blocks.IEBaseTileEntity;
@@ -19,6 +19,7 @@ import blusunrize.immersiveengineering.common.util.EnergyHelper.IIEInternalFluxC
 import blusunrize.immersiveengineering.common.util.Utils;
 import net.minecraft.block.BlockState;
 import net.minecraft.fluid.Fluid;
+import net.minecraft.fluid.Fluids;
 import net.minecraft.fluid.IFluidState;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.tileentity.ITickableTileEntity;
@@ -44,10 +45,13 @@ public class ThermoelectricGenTileEntity extends IEBaseTileEntity implements ITi
 	@Override
 	public void tick()
 	{
-		if(world.getGameTime()%1024==((getPos().getX()^getPos().getZ())&1023))
-			recalculateEnergyOutput();
-		if(!world.isRemote&&this.energyOutput > 0)
-			outputEnergy(this.energyOutput);
+		if(!world.isRemote)
+		{
+			if(world.getGameTime()%1024==((getPos().getX()^getPos().getZ())&1023))
+				recalculateEnergyOutput();
+			if(this.energyOutput > 0)
+				outputEnergy(this.energyOutput);
+		}
 	}
 
 	public void outputEnergy(int amount)
@@ -84,10 +88,9 @@ public class ThermoelectricGenTileEntity extends IEBaseTileEntity implements ITi
 
 	private int getTemperature(BlockPos pos)
 	{
-		//TODO
-		//Fluid f = getFluid(pos);
-		//if(f!=null)
-		//	return f.getTemperature(world, pos);
+		Fluid f = getFluid(pos);
+		if(f!=Fluids.EMPTY)
+			return f.getAttributes().getTemperature(world, pos);
 		BlockState state = world.getBlockState(pos);
 		return ThermoelectricHandler.getTemperature(state.getBlock());
 	}
@@ -115,9 +118,9 @@ public class ThermoelectricGenTileEntity extends IEBaseTileEntity implements ITi
 
 	@Nonnull
 	@Override
-	public SideConfig getEnergySideConfig(@Nullable Direction facing)
+	public IOSideConfig getEnergySideConfig(@Nullable Direction facing)
 	{
-		return SideConfig.OUTPUT;
+		return IOSideConfig.OUTPUT;
 	}
 
 	@Override

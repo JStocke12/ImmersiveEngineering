@@ -8,8 +8,7 @@
 
 package blusunrize.immersiveengineering.common.blocks.metal;
 
-import blusunrize.immersiveengineering.api.IEEnums;
-import blusunrize.immersiveengineering.api.IEEnums.SideConfig;
+import blusunrize.immersiveengineering.api.IEEnums.IOSideConfig;
 import blusunrize.immersiveengineering.api.Lib;
 import blusunrize.immersiveengineering.api.energy.immersiveflux.FluxStorage;
 import blusunrize.immersiveengineering.common.IEConfig;
@@ -47,15 +46,7 @@ public class CapacitorLVTileEntity extends IEBaseTileEntity implements ITickable
 {
 	public static TileEntityType<CapacitorLVTileEntity> TYPE;
 
-	public EnumMap<Direction, SideConfig> sideConfig = new EnumMap<>(Direction.class);
-
-	{
-		for(Direction f : Direction.VALUES)
-			if(f==Direction.UP)
-				sideConfig.put(f, SideConfig.INPUT);
-			else
-				sideConfig.put(f, SideConfig.NONE);
-	}
+	public EnumMap<Direction, IOSideConfig> sideConfig = new EnumMap<>(Direction.class);
 
 	FluxStorage energyStorage = new FluxStorage(getMaxStorage(), getMaxInput(), getMaxOutput());
 
@@ -64,11 +55,18 @@ public class CapacitorLVTileEntity extends IEBaseTileEntity implements ITickable
 	public CapacitorLVTileEntity(TileEntityType<? extends CapacitorLVTileEntity> type)
 	{
 		super(type);
+		for(Direction f : Direction.VALUES)
+		{
+			if(f==Direction.UP)
+				sideConfig.put(f, IOSideConfig.INPUT);
+			else
+				sideConfig.put(f, IOSideConfig.NONE);
+		}
 	}
 
 	public CapacitorLVTileEntity()
 	{
-		super(TYPE);
+		this(TYPE);
 	}
 
 	@Override
@@ -98,7 +96,7 @@ public class CapacitorLVTileEntity extends IEBaseTileEntity implements ITickable
 
 	protected void transferEnergy(Direction side)
 	{
-		if(this.sideConfig.get(side)!=SideConfig.OUTPUT)
+		if(this.sideConfig.get(side)!=IOSideConfig.OUTPUT)
 			return;
 		BlockPos outPos = getPos().offset(side);
 		TileEntity tileEntity = Utils.getExistingTileEntity(world, outPos);
@@ -107,7 +105,7 @@ public class CapacitorLVTileEntity extends IEBaseTileEntity implements ITickable
 	}
 
 	@Override
-	public IEEnums.SideConfig getSideConfig(Direction side)
+	public IOSideConfig getSideConfig(Direction side)
 	{
 		return this.sideConfig.get(side);
 	}
@@ -115,7 +113,7 @@ public class CapacitorLVTileEntity extends IEBaseTileEntity implements ITickable
 	@Override
 	public boolean toggleSide(Direction side, PlayerEntity player)
 	{
-		sideConfig.put(side, SideConfig.next(sideConfig.get(side)));
+		sideConfig.put(side, IOSideConfig.next(sideConfig.get(side)));
 		this.markDirty();
 		this.markContainingBlockForUpdate(null);
 		world.addBlockEvent(getPos(), this.getBlockState().getBlock(), 0, 0);
@@ -160,7 +158,7 @@ public class CapacitorLVTileEntity extends IEBaseTileEntity implements ITickable
 	public void readCustomNBT(CompoundNBT nbt, boolean descPacket)
 	{
 		for(Direction f : Direction.VALUES)
-			sideConfig.put(f, SideConfig.values()[nbt.getInt("sideConfig_"+f.ordinal())]);
+			sideConfig.put(f, IOSideConfig.values()[nbt.getInt("sideConfig_"+f.ordinal())]);
 		energyStorage.readFromNBT(nbt);
 	}
 
@@ -175,10 +173,10 @@ public class CapacitorLVTileEntity extends IEBaseTileEntity implements ITickable
 
 	@Nonnull
 	@Override
-	public SideConfig getEnergySideConfig(@Nullable Direction facing)
+	public IOSideConfig getEnergySideConfig(@Nullable Direction facing)
 	{
 		if(facing==null)
-			return SideConfig.NONE;
+			return IOSideConfig.NONE;
 		return this.sideConfig.get(facing);
 	}
 
@@ -196,8 +194,8 @@ public class CapacitorLVTileEntity extends IEBaseTileEntity implements ITickable
 		if(hammer&&IEConfig.GENERAL.colourblindSupport.get()&&mop instanceof BlockRayTraceResult)
 		{
 			BlockRayTraceResult bmop = (BlockRayTraceResult)mop;
-			SideConfig here = sideConfig.get(bmop.getFace());
-			SideConfig opposite = sideConfig.get(bmop.getFace().getOpposite());
+			IOSideConfig here = sideConfig.get(bmop.getFace());
+			IOSideConfig opposite = sideConfig.get(bmop.getFace().getOpposite());
 			return new String[]{
 					I18n.format(Lib.DESC_INFO+"blockSide.facing")
 							+": "+I18n.format(Lib.DESC_INFO+"blockSide.connectEnergy."+here),
@@ -231,6 +229,7 @@ public class CapacitorLVTileEntity extends IEBaseTileEntity implements ITickable
 	@Override
 	public void readOnPlacement(@Nullable LivingEntity placer, ItemStack stack)
 	{
-		readCustomNBT(stack.getOrCreateTag(), false);
+		if(stack.hasTag())
+			readCustomNBT(stack.getOrCreateTag(), false);
 	}
 }

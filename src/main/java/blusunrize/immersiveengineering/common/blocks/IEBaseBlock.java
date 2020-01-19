@@ -18,9 +18,7 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.material.PushReaction;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.BlockItemUseContext;
-import net.minecraft.item.ItemGroup;
-import net.minecraft.item.ItemStack;
+import net.minecraft.item.*;
 import net.minecraft.state.IProperty;
 import net.minecraft.state.StateContainer.Builder;
 import net.minecraft.util.*;
@@ -54,7 +52,7 @@ public class IEBaseBlock extends Block
 	protected boolean canHammerHarvest;
 	protected boolean notNormalBlock;
 
-	public IEBaseBlock(String name, Block.Properties blockProps, @Nullable Class<? extends BlockItemIE> itemBlock, IProperty... additionalProperties)
+	public IEBaseBlock(String name, Block.Properties blockProps, @Nullable Class<? extends BlockItem> itemBlock, IProperty... additionalProperties)
 	{
 		super(setTempProperties(blockProps, additionalProperties));
 		this.name = name;
@@ -63,37 +61,38 @@ public class IEBaseBlock extends Block
 		this.setDefaultState(getInitDefaultState());
 		ResourceLocation registryName = createRegistryName();
 		setRegistryName(registryName);
-		//TODO this.adjustSound();
 
 		IEContent.registeredIEBlocks.add(this);
 		if(itemBlock!=null)
 		{
 			try
 			{
-				IEContent.registeredIEItems.add(itemBlock.getConstructor(Block.class)
-						.newInstance(this));
+				Item item = itemBlock.getConstructor(Block.class, Item.Properties.class)
+						.newInstance(this, new Item.Properties().group(ImmersiveEngineering.itemGroup));
+				item.setRegistryName(registryName);
+				IEContent.registeredIEItems.add(item);
 			} catch(Exception e)
 			{
 				//TODO e.printStackTrace();
 				throw new RuntimeException(e);
 			}
 		}
-		lightOpacity = 255;
+		lightOpacity = 15;
 	}
 
 	//TODO do we still need this hackyness?
 	protected static Block.Properties setTempProperties(Properties blockProps, Object[] additionalProperties)
 	{
-		ArrayList<IProperty> propList = new ArrayList<IProperty>();
+		List<IProperty<?>> propList = new ArrayList<>();
 		for(Object o : additionalProperties)
 		{
 			if(o instanceof IProperty)
-				propList.add((IProperty)o);
+				propList.add((IProperty<?>)o);
 			if(o instanceof IProperty[])
-				propList.addAll(Arrays.asList(((IProperty[])o)));
+				propList.addAll(Arrays.asList(((IProperty<?>[])o)));
 		}
 		tempProperties = propList.toArray(new IProperty[0]);
-		return blockProps;
+		return blockProps.variableOpacity();
 	}
 
 	public IEBaseBlock setHidden(boolean shouldHide)
@@ -140,14 +139,21 @@ public class IEBaseBlock extends Block
 	@Override
 	public BlockRenderLayer getRenderLayer()
 	{
-		return renderLayers.get(0);
+		//TODO This is currently mostly a marker for culling, the actual layer is determined by canRenderInLayer
+		return notNormalBlock?BlockRenderLayer.CUTOUT: BlockRenderLayer.SOLID;
 	}
 
 	@Override
 	@SuppressWarnings("deprecation")
 	public int getOpacity(BlockState state, IBlockReader worldIn, BlockPos pos)
 	{
-		return lightOpacity;
+		if(notNormalBlock)
+			return 0;
+			//TODO this sometimes locks up when generating IE blocks as part of worldgen
+		else if(state.isOpaqueCube(worldIn, pos))
+			return lightOpacity;
+		else
+			return state.propagatesSkylightDown(worldIn, pos)?0: 1;
 	}
 
 	public IEBaseBlock setMobility(PushReaction flag)
@@ -169,11 +175,11 @@ public class IEBaseBlock extends Block
 		return this;
 	}
 
-	//TODO what is this?
+
 	@Override
-	public float func_220080_a(BlockState p_220080_1_, IBlockReader p_220080_2_, BlockPos p_220080_3_)
+	public float getAmbientOcclusionLightValue(BlockState state, IBlockReader world, BlockPos pos)
 	{
-		return notNormalBlock?1: super.func_220080_a(p_220080_1_, p_220080_2_, p_220080_3_);
+		return notNormalBlock?1: super.getAmbientOcclusionLightValue(state, world, pos);
 	}
 
 	@Override
@@ -200,7 +206,6 @@ public class IEBaseBlock extends Block
 	protected void fillStateContainer(Builder<Block, BlockState> builder)
 	{
 		super.fillStateContainer(builder);
-		//TODO ext states?
 		builder.add(tempProperties);
 	}
 

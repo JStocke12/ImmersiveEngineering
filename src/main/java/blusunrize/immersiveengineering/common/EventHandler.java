@@ -11,14 +11,14 @@ package blusunrize.immersiveengineering.common;
 import blusunrize.immersiveengineering.ImmersiveEngineering;
 import blusunrize.immersiveengineering.api.CapabilitySkyhookData.SimpleSkyhookProvider;
 import blusunrize.immersiveengineering.api.Lib;
-import blusunrize.immersiveengineering.api.energy.wires.GlobalWireNetwork;
-import blusunrize.immersiveengineering.api.energy.wires.NetHandlerCapability;
 import blusunrize.immersiveengineering.api.shader.CapabilityShader;
 import blusunrize.immersiveengineering.api.shader.CapabilityShader.ShaderWrapper_Direct;
 import blusunrize.immersiveengineering.api.shader.IShaderItem;
 import blusunrize.immersiveengineering.api.tool.ExcavatorHandler;
 import blusunrize.immersiveengineering.api.tool.ExcavatorHandler.MineralMix;
 import blusunrize.immersiveengineering.api.tool.IDrillHead;
+import blusunrize.immersiveengineering.api.wires.GlobalWireNetwork;
+import blusunrize.immersiveengineering.api.wires.NetHandlerCapability;
 import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IEntityProof;
 import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.ISpawnInterdiction;
 import blusunrize.immersiveengineering.common.blocks.IEBlocks.MetalDevices;
@@ -34,6 +34,8 @@ import blusunrize.immersiveengineering.common.network.MessageMinecartShaderSync;
 import blusunrize.immersiveengineering.common.network.MessageMineralListSync;
 import blusunrize.immersiveengineering.common.util.*;
 import blusunrize.immersiveengineering.common.util.IEDamageSources.ElectricDamageSource;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongList;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityClassification;
@@ -103,7 +105,7 @@ public class EventHandler
 	{
 		if(event.getObject() instanceof AbstractMinecartEntity)
 			event.addCapability(new ResourceLocation("immersiveengineering:shader"),
-					new ShaderWrapper_Direct("immersiveengineering:minecart"));
+					new ShaderWrapper_Direct(new ResourceLocation(ImmersiveEngineering.MODID, "minecart")));
 		if(event.getObject() instanceof PlayerEntity)
 			event.addCapability(new ResourceLocation(ImmersiveEngineering.MODID, "skyhook_data"),
 					new SimpleSkyhookProvider());
@@ -212,15 +214,13 @@ public class EventHandler
 			ImmersiveEngineering.packetHandler.sendToServer(new MessageMinecartShaderSync(event.getEntity(), null));
 	}
 
+	private LongList tickTimes = new LongArrayList();
 	@SubscribeEvent
 	public void onWorldTick(WorldTickEvent event)
 	{
-		if(event.phase==TickEvent.Phase.START&&validateConnsNextTick&&!event.world.isRemote)
+		if(event.phase==TickEvent.Phase.START&&!event.world.isRemote)
 		{
-			//TODO implement for the new system
-		}
-		if(event.phase==TickEvent.Phase.END&&!event.world.isRemote)
-		{
+			//TODO implement for the new system if (validateConnsNextTick)...
 			DimensionType dim = event.world.getDimension().getType();
 			GlobalWireNetwork.getNetwork(event.world).tick();
 

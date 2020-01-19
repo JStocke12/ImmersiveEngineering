@@ -8,8 +8,7 @@
 
 package blusunrize.immersiveengineering.common.blocks.cloth;
 
-import blusunrize.immersiveengineering.api.energy.wires.Connection;
-import blusunrize.immersiveengineering.api.energy.wires.ConnectionPoint;
+import blusunrize.immersiveengineering.ImmersiveEngineering;
 import blusunrize.immersiveengineering.api.shader.CapabilityShader;
 import blusunrize.immersiveengineering.api.shader.CapabilityShader.ShaderWrapper;
 import blusunrize.immersiveengineering.api.shader.CapabilityShader.ShaderWrapper_Direct;
@@ -17,11 +16,11 @@ import blusunrize.immersiveengineering.api.shader.IShaderItem;
 import blusunrize.immersiveengineering.api.shader.ShaderCase;
 import blusunrize.immersiveengineering.api.shader.ShaderRegistry;
 import blusunrize.immersiveengineering.api.shader.ShaderRegistry.ShaderRegistryEntry;
+import blusunrize.immersiveengineering.api.wires.Connection;
+import blusunrize.immersiveengineering.api.wires.ConnectionPoint;
 import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IHammerInteraction;
-import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.ILightValue;
 import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IPlayerInteraction;
 import blusunrize.immersiveengineering.common.blocks.metal.ConnectorStructuralTileEntity;
-import blusunrize.immersiveengineering.common.entities.RevolvershotEntity;
 import blusunrize.immersiveengineering.common.util.Utils;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.Entity;
@@ -32,11 +31,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.particles.ParticleTypes;
 import net.minecraft.tileentity.TileEntityType;
-import net.minecraft.util.Direction;
+import net.minecraft.util.*;
 import net.minecraft.util.Direction.Axis;
-import net.minecraft.util.Hand;
-import net.minecraft.util.SoundCategory;
-import net.minecraft.util.SoundEvents;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
@@ -49,13 +45,13 @@ import org.apache.commons.lang3.tuple.Triple;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class BalloonTileEntity extends ConnectorStructuralTileEntity implements ILightValue, IPlayerInteraction, IHammerInteraction
+public class BalloonTileEntity extends ConnectorStructuralTileEntity implements IPlayerInteraction, IHammerInteraction
 {
 	public static TileEntityType<BalloonTileEntity> TYPE;
 	public int style = 0;
 	public int colour0 = 0xffffff;
 	public int colour1 = 0xffffff;
-	public ShaderWrapper_Direct shader = new ShaderWrapper_Direct("immersiveengineering:balloon");
+	public ShaderWrapper_Direct shader = new ShaderWrapper_Direct(new ResourceLocation(ImmersiveEngineering.MODID, "balloon"));
 
 	public BalloonTileEntity()
 	{
@@ -64,21 +60,20 @@ public class BalloonTileEntity extends ConnectorStructuralTileEntity implements 
 	}
 
 	@Override
-	public int getLightValue()
-	{
-		return 13;
-	}
-
-	@Override
 	public void readCustomNBT(CompoundNBT nbt, boolean descPacket)
 	{
 		super.readCustomNBT(nbt, descPacket);
+		final int oldStyle = style;
+		final int oldC0 = colour0;
+		final int oldC1 = colour1;
 		style = nbt.getInt("style");
 		colour0 = nbt.getInt("colour0");
 		colour1 = nbt.getInt("colour1");
+		if(oldStyle!=style||oldC0!=colour0||oldC1!=colour1)
+			requestModelDataUpdate();
 		if(nbt.contains("shader", NBT.TAG_COMPOUND))
 		{
-			shader = new ShaderWrapper_Direct("immersiveengineering:balloon");
+			shader = new ShaderWrapper_Direct(new ResourceLocation(ImmersiveEngineering.MODID, "balloon"));
 			shader.deserializeNBT(nbt.getCompound("shader"));
 			reInitCapability();
 		}
@@ -135,7 +130,7 @@ public class BalloonTileEntity extends ConnectorStructuralTileEntity implements 
 	public String getCacheKey(@Nonnull BlockState object)
 	{
 		if(shader!=null&&!shader.getShaderItem().isEmpty()&&shader.getShaderItem().getItem() instanceof IShaderItem)
-			return ((IShaderItem)shader.getShaderItem().getItem()).getShaderName(shader.getShaderItem());
+			return ((IShaderItem)shader.getShaderItem().getItem()).getShaderName(shader.getShaderItem()).toString();
 		return colour0+":"+colour1+":"+style;
 	}
 
@@ -186,7 +181,7 @@ public class BalloonTileEntity extends ConnectorStructuralTileEntity implements 
 		if(!heldItem.isEmpty()&&heldItem.getItem() instanceof IShaderItem)
 		{
 			if(this.shader==null)
-				this.shader = new ShaderWrapper_Direct("immersiveengineering:balloon");
+				this.shader = new ShaderWrapper_Direct(new ResourceLocation(ImmersiveEngineering.MODID, "balloon"));
 			this.shader.setShaderItem(Utils.copyStackWithAmount(heldItem, 1));
 			markContainingBlockForUpdate(null);
 			return true;
@@ -230,17 +225,20 @@ public class BalloonTileEntity extends ConnectorStructuralTileEntity implements 
 	}
 
 	@Override
-	public boolean hammerUseSide(Direction side, PlayerEntity player, float hitX, float hitY, float hitZ)
+	public boolean hammerUseSide(Direction side, PlayerEntity player, Vec3d hitVec)
 	{
-		style = 1-style;
-		markContainingBlockForUpdate(null);
+		if(!world.isRemote)
+		{
+			style = 1-style;
+			markContainingBlockForUpdate(null);
+		}
 		return true;
 	}
 
 	@Override
 	public void onEntityCollision(World world, Entity entity)
 	{
-		if(entity instanceof AbstractArrowEntity||entity instanceof RevolvershotEntity)
+		if(entity instanceof AbstractArrowEntity)
 		{
 			Vec3d pos = new Vec3d(getPos()).add(.5, .5, .5);
 			world.playSound(null, pos.x, pos.y, pos.z, SoundEvents.ENTITY_FIREWORK_ROCKET_BLAST,
@@ -249,8 +247,19 @@ public class BalloonTileEntity extends ConnectorStructuralTileEntity implements 
 			world.addParticle(ParticleTypes.EXPLOSION, pos.x, pos.y, pos.z, 0, .05, 0);
 			Triple<ItemStack, ShaderRegistryEntry, ShaderCase> shader = ShaderRegistry.getStoredShaderAndCase(this.shader);
 			if(shader!=null)
-				shader.getMiddle().getEffectFunction().execute(world, shader.getLeft(), null, shader.getRight().getShaderType(), pos, null, .375f);
+				shader.getMiddle().getEffectFunction().execute(world, shader.getLeft(), null, shader.getRight().getShaderType().toString(), pos, null, .375f);
 
 		}
+	}
+
+	@Override
+	public Direction getFacing()
+	{
+		return Direction.NORTH;
+	}
+
+	@Override
+	public void setFacing(Direction facing)
+	{
 	}
 }

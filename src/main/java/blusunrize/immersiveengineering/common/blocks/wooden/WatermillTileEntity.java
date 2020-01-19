@@ -35,6 +35,7 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.List;
 
 public class WatermillTileEntity extends IEBaseTileEntity implements ITickableTileEntity, IStateBasedDirectional, IHasDummyBlocks, IHasObjProperty
 {
@@ -303,9 +304,10 @@ public class WatermillTileEntity extends IEBaseTileEntity implements ITickableTi
 	@Override
 	public void placeDummies(BlockItemUseContext ctx, BlockState state)
 	{
+		state = state.with(IEProperties.MULTIBLOCKSLAVE, true);
 		for(int hh = -2; hh <= 2; hh++)
 			for(int ww = -2; ww <= 2; ww++)
-				if((hh > -2&&hh < 2)||(ww > -2&&ww < 2))
+				if(((hh > -2&&hh < 2)||(ww > -2&&ww < 2))&&(hh!=0||ww!=0))
 				{
 					BlockPos pos2 = pos.add(getFacing().getAxis()==Axis.Z?ww: 0, hh, getFacing().getAxis()==Axis.Z?0: ww);
 					world.setBlockState(pos2, state);
@@ -335,10 +337,10 @@ public class WatermillTileEntity extends IEBaseTileEntity implements ITickableTi
 				}
 	}
 
-	static ArrayList<String> emptyDisplayList = new ArrayList();
+	static ArrayList<String> emptyDisplayList = new ArrayList<>();
 
 	@Override
-	public ArrayList<String> compileDisplayList()
+	public List<String> compileDisplayList(BlockState state)
 	{
 		return emptyDisplayList;
 	}

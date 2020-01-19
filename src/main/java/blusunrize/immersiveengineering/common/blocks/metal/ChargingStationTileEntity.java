@@ -9,7 +9,7 @@
 package blusunrize.immersiveengineering.common.blocks.metal;
 
 import blusunrize.immersiveengineering.ImmersiveEngineering;
-import blusunrize.immersiveengineering.api.IEEnums.SideConfig;
+import blusunrize.immersiveengineering.api.IEEnums.IOSideConfig;
 import blusunrize.immersiveengineering.api.IEProperties;
 import blusunrize.immersiveengineering.api.energy.immersiveflux.FluxStorage;
 import blusunrize.immersiveengineering.api.energy.immersiveflux.FluxStorageAdvanced;
@@ -171,13 +171,13 @@ public class ChargingStationTileEntity extends IEBaseTileEntity implements ITick
 
 	@Nonnull
 	@Override
-	public SideConfig getEnergySideConfig(Direction facing)
+	public IOSideConfig getEnergySideConfig(Direction facing)
 	{
-		return facing==Direction.DOWN||facing==this.getFacing().getOpposite()?SideConfig.INPUT: SideConfig.NONE;
+		return facing==Direction.DOWN||facing==this.getFacing().getOpposite()?IOSideConfig.INPUT: IOSideConfig.NONE;
 	}
 
 	IEForgeEnergyWrapper wrapperDown = new IEForgeEnergyWrapper(this, Direction.DOWN);
-	IEForgeEnergyWrapper wrapperDir = new IEForgeEnergyWrapper(this, getFacing().getOpposite());
+	IEForgeEnergyWrapper wrapperDir = null;
 
 	@Override
 	public IEForgeEnergyWrapper getCapabilityWrapper(Direction facing)
@@ -186,7 +186,7 @@ public class ChargingStationTileEntity extends IEBaseTileEntity implements ITick
 			return wrapperDown;
 		else if(facing==this.getFacing().getOpposite())
 		{
-			if(wrapperDir.side!=this.getFacing().getOpposite())
+			if(wrapperDir==null||wrapperDir.side!=this.getFacing().getOpposite())
 				wrapperDir = new IEForgeEnergyWrapper(this, this.getFacing().getOpposite());
 			return wrapperDir;
 		}

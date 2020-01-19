@@ -8,6 +8,7 @@
 
 package blusunrize.immersiveengineering.common.items;
 
+import blusunrize.immersiveengineering.ImmersiveEngineering;
 import blusunrize.immersiveengineering.api.ApiUtils;
 import blusunrize.immersiveengineering.api.Lib;
 import blusunrize.immersiveengineering.api.energy.DieselHandler;
@@ -54,6 +55,7 @@ import net.minecraft.tags.FluidTags;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.Direction;
 import net.minecraft.util.Hand;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.RayTraceContext.FluidMode;
 import net.minecraft.util.math.RayTraceResult;
@@ -94,7 +96,7 @@ public class DrillItem extends UpgradeableToolItem implements IAdvancedFluidItem
 
 	public DrillItem()
 	{
-		super("drill", new Properties().maxStackSize(1).setTEISR(() -> () -> IEOBJItemRenderer.INSTANCE), "DRILL");
+		super("drill", withIEOBJRender().maxStackSize(1).setTEISR(() -> () -> IEOBJItemRenderer.INSTANCE), "DRILL");
 	}
 
 	@Override
@@ -149,11 +151,7 @@ public class DrillItem extends UpgradeableToolItem implements IAdvancedFluidItem
 	@Override
 	public void addInformation(ItemStack stack, @Nullable World world, List<ITextComponent> list, ITooltipFlag flag)
 	{
-		FluidStack fs = getFluid(stack);
-		if(fs!=null)
-			list.add(new TranslationTextComponent(Lib.DESC_FLAVOUR+"drill.fuel", fs.getAmount(), getCapacity(stack, 2000)));
-		else
-			list.add(new TranslationTextComponent(Lib.DESC_FLAVOUR+"drill.empty"));
+		list.add(IEItemFluidHandler.fluidItemInfoFlavor(getFluid(stack), getCapacity(stack, 2000)));
 		if(getHead(stack).isEmpty())
 			list.add(new TranslationTextComponent(Lib.DESC_FLAVOUR+"drill.noHead"));
 		else
@@ -225,15 +223,12 @@ public class DrillItem extends UpgradeableToolItem implements IAdvancedFluidItem
 	@Override
 	public Optional<TRSRTransformation> applyTransformations(ItemStack stack, String group, Optional<TRSRTransformation> transform)
 	{
-		if(transform.isPresent())
+		CompoundNBT upgrades = this.getUpgrades(stack);
+		if(group.equals("drill_head")&&upgrades.getInt("damage") <= 0)
 		{
-			CompoundNBT upgrades = this.getUpgrades(stack);
-			if(group.equals("drill_head")&&upgrades.getInt("damage") <= 0)
-			{
-				Matrix4 mat = new Matrix4(transform.get().getMatrixVec());
-				mat.translate(-.25f, 0, 0);
-				return Optional.of(new TRSRTransformation(mat.toMatrix4f()));
-			}
+			Matrix4 mat = new Matrix4(transform.orElse(TRSRTransformation.identity()).getMatrixVec());
+			mat.translate(-.25f, 0, 0);
+			return Optional.of(new TRSRTransformation(mat.toMatrix4f()));
 		}
 		return transform;
 	}
@@ -274,7 +269,6 @@ public class DrillItem extends UpgradeableToolItem implements IAdvancedFluidItem
 		mat.setIdentity();
 		if(groups==FIXED[0])
 			return matAugers;
-		//.069813f
 		float angle = (entity.ticksExisted%60+partialTicks)/60f*(float)(2*Math.PI);
 		if("drill_head".equals(groups[0]))
 			mat.rotate(angle, 1, 0, 0);
@@ -307,7 +301,7 @@ public class DrillItem extends UpgradeableToolItem implements IAdvancedFluidItem
 	public void removeFromWorkbench(PlayerEntity player, ItemStack stack)
 	{
 		LazyOptional<IItemHandler> invCap = stack.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null);
-		invCap.ifPresent(inv-> {
+		invCap.ifPresent(inv -> {
 			if(!inv.getStackInSlot(0).isEmpty()&&!inv.getStackInSlot(1).isEmpty()&&!inv.getStackInSlot(2).isEmpty()&&!inv.getStackInSlot(3).isEmpty())
 				Utils.unlockIEAdvancement(player, "main/upgrade_drill");
 		});
@@ -316,10 +310,12 @@ public class DrillItem extends UpgradeableToolItem implements IAdvancedFluidItem
 	/*INVENTORY STUFF*/
 	public ItemStack getHead(ItemStack drill)
 	{
+		if(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY==null)
+			return ItemStack.EMPTY;
 		ItemStack head;
 		boolean remote = EffectiveSide.get()==LogicalSide.CLIENT;
 		LazyOptional<IItemHandler> cap = drill.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null);
-		if(!remote&&cap.map(h->h.getStackInSlot(0).isEmpty()).orElse(false))
+		if(!remote&&cap.map(h -> h.getStackInSlot(0).isEmpty()).orElse(false))
 			remote = true;
 		else if(remote&&!ItemNBTHelper.hasKey(drill, "head"))
 			remote = false;
@@ -396,7 +392,7 @@ public class DrillItem extends UpgradeableToolItem implements IAdvancedFluidItem
 
 				Triple<ItemStack, ShaderRegistryEntry, ShaderCase> shader = ShaderRegistry.getStoredShaderAndCase(stack);
 				if(shader!=null)
-					shader.getMiddle().getEffectFunction().execute(world, shader.getLeft(), stack, shader.getRight().getShaderType(), new Vec3d(pos.getX()+.5, pos.getY()+.5, pos.getZ()+.5), null, .375f);
+					shader.getMiddle().getEffectFunction().execute(world, shader.getLeft(), stack, shader.getRight().getShaderType().toString(), new Vec3d(pos.getX()+.5, pos.getY()+.5, pos.getZ()+.5), null, .375f);
 			}
 		}
 
@@ -483,7 +479,7 @@ public class DrillItem extends UpgradeableToolItem implements IAdvancedFluidItem
 		World world = player.world;
 		if(player.isSneaking()||world.isRemote||!(player instanceof ServerPlayerEntity))
 			return false;
-		RayTraceResult mop = this.rayTrace(world, player, FluidMode.NONE);
+		RayTraceResult mop = rayTrace(world, player, FluidMode.NONE);
 		ItemStack head = getHead(stack);
 		if(mop==null||head.isEmpty()||this.isDrillBroken(stack))
 			return false;
@@ -535,12 +531,12 @@ public class DrillItem extends UpgradeableToolItem implements IAdvancedFluidItem
 		if(slotChanged)
 			return true;
 		LazyOptional<ShaderWrapper> wrapperOld = oldStack.getCapability(CapabilityShader.SHADER_CAPABILITY);
-		LazyOptional<Boolean> sameShader = wrapperOld.map(wOld->{
+		LazyOptional<Boolean> sameShader = wrapperOld.map(wOld -> {
 			LazyOptional<ShaderWrapper> wrapperNew = newStack.getCapability(CapabilityShader.SHADER_CAPABILITY);
-			return wrapperNew.map(w->ItemStack.areItemStacksEqual(wOld.getShaderItem(), w.getShaderItem()))
+			return wrapperNew.map(w -> ItemStack.areItemStacksEqual(wOld.getShaderItem(), w.getShaderItem()))
 					.orElse(true);
 		});
-		if (!sameShader.orElse(true))
+		if(!sameShader.orElse(true))
 			return true;
 		return super.shouldCauseReequipAnimation(oldStack, newStack, slotChanged);
 	}
@@ -552,7 +548,7 @@ public class DrillItem extends UpgradeableToolItem implements IAdvancedFluidItem
 			return new IEItemStackHandler(stack)
 			{
 				LazyOptional<IEItemFluidHandler> fluids = ApiUtils.constantOptional(new IEItemFluidHandler(stack, 2000));
-				LazyOptional<ShaderWrapper_Item> shaders = ApiUtils.constantOptional(new ShaderWrapper_Item("immersiveengineering:drill", stack));
+				LazyOptional<ShaderWrapper_Item> shaders = ApiUtils.constantOptional(new ShaderWrapper_Item(new ResourceLocation(ImmersiveEngineering.MODID, "drill"), stack));
 
 				@Nonnull
 				@Override
