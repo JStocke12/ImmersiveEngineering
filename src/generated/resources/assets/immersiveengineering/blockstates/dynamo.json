@@ -1,22 +1,19 @@
 {
   "variants": {
     "facing=north": {
-      "model": "immersiveengineering:item/dynamo"
+      "model": "immersiveengineering:block/kinetic_dynamo"
     },
     "facing=south": {
-      "model": "immersiveengineering:item/dynamo",
-      "y": 180,
-      "uvlock": true
+      "model": "immersiveengineering:block/kinetic_dynamo",
+      "y": 180
     },
     "facing=west": {
-      "model": "immersiveengineering:item/dynamo",
-      "y": 270,
-      "uvlock": true
+      "model": "immersiveengineering:block/kinetic_dynamo",
+      "y": 270
     },
     "facing=east": {
-      "model": "immersiveengineering:item/dynamo",
-      "y": 90,
-      "uvlock": true
+      "model": "immersiveengineering:block/kinetic_dynamo",
+      "y": 90
     }
   }
 }

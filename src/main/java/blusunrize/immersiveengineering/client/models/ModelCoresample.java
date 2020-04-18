@@ -8,9 +8,11 @@
 
 package blusunrize.immersiveengineering.client.models;
 
+import blusunrize.immersiveengineering.ImmersiveEngineering;
 import blusunrize.immersiveengineering.api.IEProperties.Model;
 import blusunrize.immersiveengineering.api.tool.ExcavatorHandler;
 import blusunrize.immersiveengineering.api.tool.ExcavatorHandler.MineralMix;
+import blusunrize.immersiveengineering.api.tool.ExcavatorHandler.OreOutput;
 import blusunrize.immersiveengineering.client.ClientUtils;
 import blusunrize.immersiveengineering.common.util.ItemNBTHelper;
 import blusunrize.immersiveengineering.common.util.chickenbones.Matrix4;
@@ -18,6 +20,8 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonObject;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -30,12 +34,17 @@ import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.renderer.vertex.VertexFormat;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.resources.IResourceManager;
 import net.minecraft.util.Direction;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.Vec2f;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
+import net.minecraftforge.client.model.ICustomModelLoader;
+import net.minecraftforge.client.model.IModelConfiguration;
+import net.minecraftforge.client.model.IModelLoader;
 import net.minecraftforge.client.model.data.IModelData;
+import net.minecraftforge.client.model.geometry.IModelGeometry;
 import net.minecraftforge.client.model.pipeline.LightUtil;
 import net.minecraftforge.client.model.pipeline.UnpackedBakedQuad;
 import org.apache.commons.lang3.tuple.Pair;
@@ -51,7 +60,6 @@ import java.util.function.Function;
 @SuppressWarnings("deprecation")
 public class ModelCoresample extends BakedIEModel
 {
-	private static final List<BakedQuad> EMPTY_QUADS = Lists.newArrayList();
 	private static final Cache<String, ModelCoresample> modelCache = CacheBuilder.newBuilder()
 			.expireAfterAccess(60, TimeUnit.SECONDS)
 			.build();
@@ -89,13 +97,13 @@ public class ModelCoresample extends BakedIEModel
 				int pixelLength = 0;
 
 				Map<TextureAtlasSprite, Integer> textureOre = new HashMap<>();
-				if(mineral!=null&&mineral.oreOutput!=null&&!mineral.oreOutput.isEmpty())
+				if(mineral!=null)
 				{
-					for(int i = 0; i < mineral.oreOutput.size(); i++)
-						if(!mineral.oreOutput.get(i).isEmpty())
+					for(OreOutput o : mineral.outputs)
+						if(!o.stack.isEmpty())
 						{
-							int weight = Math.max(2, Math.round(16*mineral.recalculatedChances[i]));
-							Block b = Block.getBlockFromItem(mineral.oreOutput.get(i).getItem());
+							int weight = Math.max(2, (int)Math.round(16*o.recalculatedChance));
+							Block b = Block.getBlockFromItem(o.stack.getItem());
 							BlockState state = b!=Blocks.AIR?b.getDefaultState(): Blocks.STONE.getDefaultState();
 							IBakedModel model = Minecraft.getInstance().getBlockRendererDispatcher().getBlockModelShapes().getModel(state);
 							if(model!=null&&model.getParticleTexture()!=null)
@@ -314,25 +322,34 @@ public class ModelCoresample extends BakedIEModel
 		return Pair.of(this, id);
 	}
 
-	public static class RawCoresampleModel implements IUnbakedModel
+	public static class RawCoresampleModel implements IModelGeometry<RawCoresampleModel>
 	{
 		@Override
-		public Collection<ResourceLocation> getDependencies()
-		{
-			return ImmutableList.of();
-		}
-
-		@Override
-		public Collection<ResourceLocation> getTextures(Function<ResourceLocation, IUnbakedModel> modelGetter, Set<String> missingTextureErrors)
-		{
-			return ImmutableList.of();
-		}
-
-		@Nullable
-		@Override
-		public IBakedModel bake(ModelBakery bakery, Function<ResourceLocation, TextureAtlasSprite> spriteGetter, ISprite sprite, VertexFormat format)
+		public IBakedModel bake(IModelConfiguration owner, ModelBakery bakery, Function<ResourceLocation, TextureAtlasSprite> spriteGetter, ISprite sprite, VertexFormat format, ItemOverrideList overrides)
 		{
 			return new ModelCoresample(null);
+		}
+
+		@Override
+		public Collection<ResourceLocation> getTextureDependencies(IModelConfiguration owner, Function<ResourceLocation, IUnbakedModel> modelGetter, Set<String> missingTextureErrors)
+		{
+			return ImmutableList.of();
+		}
+	}
+
+	public static class CoresampleLoader implements IModelLoader<RawCoresampleModel>
+	{
+		public static final ResourceLocation LOCATION = new ResourceLocation(ImmersiveEngineering.MODID, "models/coresample");
+
+		@Override
+		public void onResourceManagerReload(IResourceManager resourceManager)
+		{
+		}
+
+		@Override
+		public RawCoresampleModel read(JsonDeserializationContext deserializationContext, JsonObject modelContents)
+		{
+			return new RawCoresampleModel();
 		}
 	}
 }

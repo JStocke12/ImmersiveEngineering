@@ -15,7 +15,7 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '0.13-testing'
+version = "0.14-95" + getBuildNumber()
 group = 'blusunrize.immersiveengineering' // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = 'ImmersiveEngineering'
 
@@ -29,6 +29,16 @@ sourceSets {
                     "$rootDir/src/generated/resources"
             ]
         }
+    }
+}
+processResources {
+    from(sourceSets.main.resources.srcDirs) {
+        include 'META-INF/mods.toml'
+
+        expand 'version': project.version
+    }
+    from(sourceSets.main.resources.srcDirs) {
+        exclude 'META-INF/mods.toml'
     }
 }
 minecraft {
@@ -49,7 +59,8 @@ minecraft {
             workingDirectory project.file('run')
 
             // Recommended logging data for a userdev environment
-            property 'forge.logging.markers', 'REGISTRIES,REGISTRYDUMP'
+            property 'forge.logging.markers', ''
+            property 'fml.earlyprogresswindow', 'false'
 
             // Recommended logging level for the console
             property 'forge.logging.console.level', 'debug'
@@ -70,7 +81,7 @@ minecraft {
             workingDirectory project.file('run')
 
             // Recommended logging data for a userdev environment
-            property 'forge.logging.markers', 'REGISTRIES,REGISTRYDUMP'
+            property 'forge.logging.markers', ''
 
             // Recommended logging level for the console
             property 'forge.logging.console.level', 'debug'
@@ -85,7 +96,7 @@ minecraft {
             workingDirectory project.file('run')
 
             // Recommended logging data for a userdev environment
-            property 'forge.logging.markers', 'REGISTRIES,REGISTRYDUMP'
+            property 'forge.logging.markers', ''
 
             // Recommended logging level for the console
             property 'forge.logging.console.level', 'debug'
@@ -114,9 +125,9 @@ repositories {
             url = "https://minecraft.curseforge.com/api/maven/"
         }
     }
- }
+}
 dependencies {
-    minecraft 'net.minecraftforge:forge:1.14.4-28.1.114'
+    minecraft 'net.minecraftforge:forge:1.14.4-28.2.3'
     runtimeOnly fg.deobf("mezz.jei:jei-1.14.4:6.0.0.11")
     runtimeOnly fg.deobf("nbtedit:NBTEdit:0.8.2")
     compileOnly fg.deobf("mezz.jei:jei-1.14.4:6.0.0.11:api")
@@ -128,18 +139,7 @@ def reobfArtifact = artifacts.add('default', reobfFile) {
     type 'jar'
     builtBy 'reobfJar'
 }
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            artifact reobfArtifact
-        }
-    }
-    repositories {
-        maven {
-            url "file:///${project.projectDir}/mcmodsrepo"
-        }
-    }
-}
+
 task signJar(type: SignJar, dependsOn: jar) {
     onlyIf {
         project.hasProperty('keyStore')
@@ -157,3 +157,65 @@ task signJar(type: SignJar, dependsOn: jar) {
 }
 
 build.dependsOn signJar
+
+String getBuildNumber() {
+    boolean includeGitRev = System.getenv("ie_add_git_rev") != null;
+    if (includeGitRev) {
+        def stdout = new ByteArrayOutputStream()
+        exec {
+            commandLine 'git', 'rev-parse', '--short', 'HEAD'
+            standardOutput = stdout
+        }
+        return "-" + stdout.toString().trim()
+    }
+    return ""
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+artifacts {
+    archives sourcesJar
+}
+
+apply plugin: 'maven'
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            repository(url: "file://" + (System.getenv("local_maven") != null ? System.getenv("local_maven") : System.getenv("bamboo_local_maven")))
+            pom {
+                groupId = project.group
+                version = project.version
+                artifactId = project.archivesBaseName
+                project {
+                    name project.archivesBaseName
+                    packaging 'jar'
+                    description project.archivesBaseName
+                    url ''
+                    scm {
+                        url 'https://github.com/BluSunrize/ImmersiveEngineering'
+                        connection 'scm:git:git@github.com/BluSunrize/ImmersiveEngineering.git'
+                        developerConnection 'scm:git:git@github.com/BluSunrize/ImmersiveEngineering.git'
+                    }
+                    issueManagement {
+                        system 'github'
+                        url 'https://github.com/BluSunrize/ImmersiveEngineering/issues'
+                    }
+
+                    developers {
+                        developer {
+                            id 'BluSunrize'
+                            name 'BluSunrize'
+                            roles { role 'developer' }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+uploadArchives.dependsOn build
+
+//TODO auto-generate update JSON

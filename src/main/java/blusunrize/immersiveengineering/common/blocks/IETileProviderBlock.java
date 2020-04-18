@@ -15,44 +15,31 @@ import blusunrize.immersiveengineering.api.wires.ConnectionPoint;
 import blusunrize.immersiveengineering.api.wires.IImmersiveConnectable;
 import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.*;
 import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IDirectionalTile.PlacementLimitation;
-import blusunrize.immersiveengineering.common.blocks.generic.MultiblockPartTileEntity;
 import blusunrize.immersiveengineering.common.util.Utils;
-import blusunrize.immersiveengineering.common.util.inventory.IEInventoryHandler;
-import blusunrize.immersiveengineering.common.util.inventory.IIEInventory;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.ItemEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.inventory.InventoryHelper;
 import net.minecraft.item.BlockItemUseContext;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.state.IProperty;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.Direction;
-import net.minecraft.util.Hand;
-import net.minecraft.util.NonNullList;
+import net.minecraft.util.*;
 import net.minecraft.util.math.*;
-import net.minecraft.util.math.shapes.IBooleanFunction;
 import net.minecraft.util.math.shapes.ISelectionContext;
 import net.minecraft.util.math.shapes.VoxelShape;
 import net.minecraft.util.math.shapes.VoxelShapes;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.IBlockReader;
 import net.minecraft.world.World;
-import net.minecraft.world.storage.loot.LootContext;
-import net.minecraft.world.storage.loot.LootParameterSets;
-import net.minecraft.world.storage.loot.LootParameters;
-import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.network.NetworkHooks;
-import net.minecraftforge.items.CapabilityItemHandler;
-import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nullable;
 import java.util.Collection;
@@ -126,29 +113,6 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 			else
 				dropHandler = c -> {
 				};
-			if(tile!=null&&(!(tile instanceof ITileDrop)||!((ITileDrop)tile).preventInventoryDrop())&&!(tile instanceof MultiblockPartTileEntity))
-			{
-				if(tile instanceof IIEInventory&&((IIEInventory)tile).getDroppedItems()!=null)
-					InventoryHelper.dropItems(world, pos, ((IIEInventory)tile).getDroppedItems());
-				else
-				{
-					LazyOptional<IItemHandler> itemHandler = tile.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY);
-					itemHandler.ifPresent((h) ->
-					{
-						if(h instanceof IEInventoryHandler)
-						{
-							NonNullList<ItemStack> drops = NonNullList.create();
-							for(int i = 0; i < h.getSlots(); i++)
-								if(!h.getStackInSlot(i).isEmpty())
-								{
-									drops.add(h.getStackInSlot(i));
-									((IEInventoryHandler)h).setStackInSlot(i, ItemStack.EMPTY);
-								}
-							InventoryHelper.dropItems(world, pos, drops);
-						}
-					});
-				}
-			}
 			if(tile instanceof IImmersiveConnectable&&!world.isRemote)
 				for(ConnectionPoint cp : ((IImmersiveConnectable)tile).getConnectionPoints())
 					getNetwork(world).removeAllConnectionsAt(cp, dropHandler);
@@ -162,6 +126,7 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 	{
 		if(tile instanceof IAdditionalDrops)
 		{
+			//TODO remove or turn into loot entries?
 			Collection<ItemStack> stacks = ((IAdditionalDrops)tile).getExtraDrops(player, state);
 			if(stacks!=null&&!stacks.isEmpty())
 				for(ItemStack s : stacks)
@@ -208,41 +173,6 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 		return Direction.NORTH;
 	}
 
-	/*TODO why isn't there an axis/EnumFacing parameter any more
-	@Override
-	public IBlockState rotate(IBlockState state, IWorld world, BlockPos pos, Rotation direction)
-	{
-		TileEntity tile = world.getTileEntity(pos);
-		if(tile instanceof IDirectionalTile)
-		{
-			if(!((IDirectionalTile)tile).canRotate(axis))
-				return false;
-			IBlockState state = world.getBlockState(pos);
-			if(state.getProperties().contains(IEProperties.FACING_ALL)||state.getProperties().contains(IEProperties.FACING_HORIZONTAL))
-			{
-				DirectionProperty prop = state.getProperties().contains(IEProperties.FACING_HORIZONTAL)?IEProperties.FACING_HORIZONTAL: IEProperties.FACING_ALL;
-				EnumFacing f = ((IDirectionalTile)tile).getFacing();
-				int limit = ((IDirectionalTile)tile).getFacingLimitation();
-
-				if(limit==0)
-					f = EnumFacing.VALUES[(f.ordinal()+1)%EnumFacing.VALUES.length];
-				else if(limit==1)
-					f = axis.getAxisDirection()==AxisDirection.POSITIVE?f.rotateAround(axis.getAxis()).getOpposite(): f.rotateAround(axis.getAxis());
-				else if(limit==2||limit==5)
-					f = axis.getAxisDirection()==AxisDirection.POSITIVE?f.rotateY(): f.rotateYCCW();
-				if(f!=((IDirectionalTile)tile).getFacing())
-				{
-					EnumFacing old = ((IDirectionalTile)tile).getFacing();
-					((IDirectionalTile)tile).setFacing(f);
-					((IDirectionalTile)tile).afterRotation(old, f);
-					state = applyProperty(state, prop, ((IDirectionalTile)tile).getFacing());
-					world.setBlockState(pos, state.cycleProperty(prop));
-				}
-			}
-		}
-		return false;
-	}*/
-
 	@Override
 	public void onIEBlockPlacedBy(BlockItemUseContext context, BlockState state)
 	{
@@ -263,18 +193,12 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 			if(tile instanceof IAdvancedDirectionalTile)
 				((IAdvancedDirectionalTile)tile).onDirectionalPlacement(side, hitX, hitY, hitZ, placer);
 		}
-		if(tile instanceof ITileDrop)
-		{
-			((ITileDrop)tile).readOnPlacement(placer, stack);
-		}
+		if(tile instanceof IReadOnPlacement)
+			((IReadOnPlacement)tile).readOnPlacement(placer, stack);
 		if(tile instanceof IHasDummyBlocks)
-		{
 			((IHasDummyBlocks)tile).placeDummies(context, state);
-		}
 		if(tile instanceof IPlacementInteraction)
-		{
 			((IPlacementInteraction)tile).onTilePlaced(world, pos, state, side, hitX, hitY, hitZ, placer, stack);
-		}
 	}
 
 	@Override
@@ -299,7 +223,10 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 		final float hitZ = (float)hit.getHitVec().z-pos.getZ();
 		ItemStack heldItem = player.getHeldItem(hand);
 		TileEntity tile = world.getTileEntity(pos);
-		if(tile instanceof IDirectionalTile&&Utils.isHammer(heldItem)&&((IDirectionalTile)tile).canHammerRotate(side, hitX, hitY, hitZ, player)&&!world.isRemote)
+		if(tile instanceof IDirectionalTile&&Utils.isHammer(heldItem)&&((IDirectionalTile)tile).canHammerRotate(
+				side,
+				hit.getHitVec().subtract(new Vec3d(pos)),
+				player)&&!world.isRemote)
 		{
 			Direction f = ((IDirectionalTile)tile).getFacing();
 			Direction oldF = f;
@@ -344,6 +271,37 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 	}
 
 	@Override
+	public BlockState rotate(BlockState state, Rotation rot)
+	{
+		IProperty<Direction> facingProp = null;
+		if(state.has(IEProperties.FACING_ALL))
+			facingProp = IEProperties.FACING_ALL;
+		else if(state.has(IEProperties.FACING_HORIZONTAL))
+			facingProp = IEProperties.FACING_HORIZONTAL;
+		if(facingProp!=null&&canRotate())
+		{
+			Direction currentDirection = state.get(facingProp);
+			Direction newDirection = rot.rotate(currentDirection);
+			return state.with(facingProp, newDirection);
+		}
+		return super.rotate(state, rot);
+	}
+
+	@Override
+	public BlockState mirror(BlockState state, Mirror mirrorIn)
+	{
+		if(state.has(IEProperties.MIRRORED)&&canRotate()&&mirrorIn==Mirror.LEFT_RIGHT)
+			return state.with(IEProperties.MIRRORED, !state.get(IEProperties.MIRRORED));
+		return super.mirror(state, mirrorIn);
+	}
+
+	protected boolean canRotate()
+	{
+		//Basic heuristic: Multiblocks should not be rotated depending on state
+		return !getStateContainer().getProperties().contains(IEProperties.MULTIBLOCKSLAVE);
+	}
+
+	@Override
 	@SuppressWarnings("deprecation")
 	public void neighborChanged(BlockState state, World world, BlockPos pos, Block block, BlockPos fromPos, boolean isMoving)
 	{
@@ -383,31 +341,11 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 	@SuppressWarnings("deprecation")
 	public VoxelShape getShape(BlockState state, IBlockReader world, BlockPos pos, ISelectionContext context)
 	{
-		//TODO caching?
 		if(state.getBlock()==this)
 		{
 			TileEntity te = world.getTileEntity(pos);
-			if(te instanceof IAdvancedCollisionBounds)
-			{
-				List<AxisAlignedBB> bounds = ((IAdvancedCollisionBounds)te).getAdvancedCollisionBounds();
-				if(bounds!=null&&!bounds.isEmpty())
-				{
-					VoxelShape ret = VoxelShapes.empty();
-					for(AxisAlignedBB aabb : bounds)
-						if(aabb!=null)
-							ret = VoxelShapes.combineAndSimplify(ret, VoxelShapes.create(aabb), IBooleanFunction.OR);
-					return ret;
-				}
-			}
-			if(te instanceof IBlockBounds)
-			{
-				float[] bounds = ((IBlockBounds)te).getBlockBounds();
-				if(bounds!=null)
-				{
-					AxisAlignedBB aabb = new AxisAlignedBB(bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
-					return VoxelShapes.create(aabb);
-				}
-			}
+			if(te instanceof ICollisionBounds)
+				return ((ICollisionBounds)te).getCollisionShape();
 		}
 		return super.getShape(state, world, pos, context);
 	}
@@ -418,38 +356,29 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 		if(world.getBlockState(pos).getBlock()==this)
 		{
 			TileEntity te = world.getTileEntity(pos);
-			if(te instanceof IAdvancedSelectionBounds)
-			{
-				List<AxisAlignedBB> bounds = ((IAdvancedSelectionBounds)te).getAdvancedSelectionBounds();
-				if(bounds!=null&&!bounds.isEmpty())
-				{
-					VoxelShape ret = VoxelShapes.empty();
-					for(AxisAlignedBB aabb : bounds)
-						if(aabb!=null)
-							ret = VoxelShapes.combineAndSimplify(ret, VoxelShapes.create(aabb), IBooleanFunction.OR);
-					return ret;
-				}
-			}
+			if(te instanceof ISelectionBounds)
+				return ((ISelectionBounds)te).getSelectionShape();
 		}
 		return super.getRaytraceShape(state, world, pos);
 	}
 
+	//TODO remove? Vanilla knows about the advanced bounds now...
 	@Nullable
 	@Override
 	public RayTraceResult getRayTraceResult(BlockState state, World world, BlockPos pos, Vec3d start, Vec3d end, RayTraceResult original)
 	{
 		TileEntity te = world.getTileEntity(pos);
-		if(te instanceof IAdvancedSelectionBounds)
+		if(te instanceof ISelectionBounds)
 		{
-			List<AxisAlignedBB> list = ((IAdvancedSelectionBounds)te).getAdvancedSelectionBounds();
-			if(list!=null&&!list.isEmpty())
+			List<AxisAlignedBB> list = ((ISelectionBounds)te).getSelectionShape().toBoundingBoxList();
+			if(!list.isEmpty())
 			{
 				RayTraceResult min = null;
 				double minDist = Double.POSITIVE_INFINITY;
 				for(AxisAlignedBB aabb : list)
 				{
 					BlockRayTraceResult mop = VoxelShapes.create(aabb.offset(-pos.getX(), -pos.getY(), -pos.getZ()))
-																							 .rayTrace(start, end, pos);
+							.rayTrace(start, end, pos);
 					if(mop!=null)
 					{
 						//double dist = mop.hitVec.squareDistanceTo(start);
@@ -530,19 +459,13 @@ public abstract class IETileProviderBlock extends IEBaseBlock implements IColour
 			((IEBaseTileEntity)te).onEntityCollision(world, entity);
 	}
 
-	@Override
-	public List<ItemStack> getDrops(BlockState state, LootContext.Builder builder)
+	public static boolean areAllReplaceable(BlockPos start, BlockPos end, BlockItemUseContext context)
 	{
-		List<ItemStack> ret = super.getDrops(state, builder);
-		LootContext ctx = builder.build(LootParameterSets.BLOCK);
-		if(ctx.has(LootParameters.BLOCK_ENTITY))
-		{
-			TileEntity te = ctx.get(LootParameters.BLOCK_ENTITY);
-			if(te instanceof ITileDrop)
-			{
-				ret.addAll(((ITileDrop)te).getTileDrops(builder));
-			}
-		}
-		return ret;
+		World w = context.getWorld();
+		return BlockPos.getAllInBox(start, end).allMatch(
+				pos -> {
+					BlockItemUseContext subContext = BlockItemUseContext.func_221536_a(context, pos, context.getFace());
+					return w.getBlockState(pos).isReplaceable(subContext);
+				});
 	}
 }

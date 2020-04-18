@@ -14,6 +14,7 @@ import blusunrize.immersiveengineering.api.tool.ExcavatorHandler;
 import blusunrize.immersiveengineering.api.wires.WireType;
 import blusunrize.immersiveengineering.client.ClientProxy;
 import blusunrize.immersiveengineering.common.*;
+import blusunrize.immersiveengineering.common.crafting.IngredientSerializers;
 import blusunrize.immersiveengineering.common.items.IEItems.Misc;
 import blusunrize.immersiveengineering.common.items.RevolverItem;
 import blusunrize.immersiveengineering.common.network.*;
@@ -24,6 +25,7 @@ import blusunrize.immersiveengineering.common.util.advancements.IEAdvancements;
 import blusunrize.immersiveengineering.common.util.commands.CommandHandler;
 import blusunrize.immersiveengineering.common.util.compat.IECompatModule;
 import blusunrize.immersiveengineering.common.world.IEWorldGen;
+import blusunrize.immersiveengineering.common.world.Villages;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonStreamParser;
@@ -80,10 +82,14 @@ public class ImmersiveEngineering
 		MinecraftForge.EVENT_BUS.addListener(this::serverStarting);
 		MinecraftForge.EVENT_BUS.addListener(this::serverStarted);
 		RecipeSerializers.RECIPE_SERIALIZERS.register(FMLJavaModLoadingContext.get().getModEventBus());
+		Villages.Registers.POINTS_OF_INTEREST.register(FMLJavaModLoadingContext.get().getModEventBus());
+		Villages.Registers.PROFESSIONS.register(FMLJavaModLoadingContext.get().getModEventBus());
 		//TODO separate client/server config?
 		ModLoadingContext.get().registerConfig(Type.COMMON, IEConfig.ALL);
 		IEContent.modConstruction();
+		proxy.modConstruction();
 		//TODO FluidRegistry.enableUniversalBucket();
+		IngredientSerializers.init();
 	}
 
 	public void setup(FMLCommonSetupEvent event)
@@ -137,11 +143,12 @@ public class ImmersiveEngineering
 		registerMessage(MessageShaderManual.class, MessageShaderManual::new);
 		registerMessage(MessageBirthdayParty.class, MessageBirthdayParty::new);
 		registerMessage(MessageMagnetEquip.class, MessageMagnetEquip::new);
-		registerMessage(MessageChemthrowerSwitch.class, MessageChemthrowerSwitch::new);
+		registerMessage(MessageScrollwheelItem.class, MessageScrollwheelItem::new);
 		registerMessage(MessageObstructedConnection.class, MessageObstructedConnection::new);
 		registerMessage(MessageSetGhostSlots.class, MessageSetGhostSlots::new);
 		registerMessage(MessageWireSync.class, MessageWireSync::new);
 		registerMessage(MessageMaintenanceKit.class, MessageMaintenanceKit::new);
+		registerMessage(MessageRevolverRotate.class, MessageRevolverRotate::new);
 
 		IEIMCHandler.init();
 		//TODO IEIMCHandler.handleIMCMessages(FMLInterModComms.fetchRuntimeMessages(this));

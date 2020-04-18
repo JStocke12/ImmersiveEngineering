@@ -12,10 +12,9 @@ import blusunrize.immersiveengineering.api.ApiUtils;
 import blusunrize.immersiveengineering.api.crafting.IngredientStack;
 import net.minecraft.block.Block;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.tags.Tag;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author BluSunrize - 08.05.2015
@@ -32,22 +31,14 @@ public class ThermoelectricHandler
 		temperatureMap.put(source, value);
 	}
 
-	public static void registerSourceInKelvin(ResourceLocation source, int value)
+	public static void registerSourceInKelvin(Tag tag, int value)
 	{
-		registerSourceInKelvin(new IngredientStack(source), value);
+		registerSourceInKelvin(new IngredientStack(tag), value);
 	}
 
-	public static void registerSourceInCelsius(ResourceLocation source, int value)
+	public static void registerSourceInCelsius(Tag tag, int value)
 	{
-		registerSourceInKelvin(new IngredientStack(source), value+273);
-	}
-
-	/**
-	 * 'murica!
-	 */
-	public static void registerSourceInFarenheit(ResourceLocation source, int value)
-	{
-		registerSourceInKelvin(new IngredientStack(source), (int)Math.round((value-32)/1.8D+273));
+		registerSourceInKelvin(new IngredientStack(tag), value+273);
 	}
 
 	public static int getTemperature(Block block)
@@ -60,9 +51,11 @@ public class ThermoelectricHandler
 		return -1;
 	}
 
-	public static Map<String, Integer> getThermalValuesSorted(boolean inverse)
+	public static SortedMap<String, Integer> getThermalValuesSorted(boolean inverse)
 	{
-		HashMap<String, Integer> existingMap = new HashMap<>();
+		SortedMap<String, Integer> existingMap = new TreeMap<>(
+				inverse?Comparator.<String>reverseOrder(): Comparator.<String>reverseOrder()
+		);
 		for(IngredientStack ingr : temperatureMap.keySet())
 			if(ingr.isValid())
 			{
@@ -70,6 +63,6 @@ public class ThermoelectricHandler
 				if(!example.isEmpty())
 					existingMap.put(example.getDisplayName().getFormattedText(), temperatureMap.get(ingr));
 			}
-		return ApiUtils.sortMap(existingMap, inverse);
+		return existingMap;
 	}
 }

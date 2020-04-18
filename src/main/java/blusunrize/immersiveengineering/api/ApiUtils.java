@@ -11,6 +11,7 @@ package blusunrize.immersiveengineering.api;
 import blusunrize.immersiveengineering.ImmersiveEngineering;
 import blusunrize.immersiveengineering.api.crafting.IngredientStack;
 import blusunrize.immersiveengineering.api.wires.*;
+import blusunrize.immersiveengineering.api.wires.Connection.CatenaryData;
 import blusunrize.immersiveengineering.api.wires.WireCollisionData.CollisionInfo;
 import blusunrize.immersiveengineering.api.wires.utils.CatenaryTracer;
 import blusunrize.immersiveengineering.common.EventHandler;
@@ -18,10 +19,10 @@ import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IGeneralM
 import blusunrize.immersiveengineering.common.network.MessageObstructedConnection;
 import blusunrize.immersiveengineering.common.util.ItemNBTHelper;
 import blusunrize.immersiveengineering.common.util.Utils;
-import blusunrize.immersiveengineering.common.util.chickenbones.Matrix4;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.AtomicDouble;
 import it.unimi.dsi.fastutil.ints.Int2IntFunction;
+import net.minecraft.block.AbstractRailBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -29,6 +30,7 @@ import net.minecraft.client.renderer.model.BakedQuad;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.renderer.vertex.VertexFormat;
 import net.minecraft.client.renderer.vertex.VertexFormatElement;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
@@ -36,22 +38,23 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.Ingredient;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.nbt.NBTUtil;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.tags.Tag;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.*;
 import net.minecraft.util.concurrent.ThreadTaskExecutor;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.concurrent.TickDelayedTask;
+import net.minecraft.util.math.*;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.World;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.model.pipeline.IVertexConsumer;
 import net.minecraftforge.client.model.pipeline.UnpackedBakedQuad;
+import net.minecraftforge.common.extensions.IForgeEntityMinecart;
+import net.minecraftforge.common.model.TRSRTransformation;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidUtil;
@@ -59,6 +62,7 @@ import net.minecraftforge.fml.LogicalSide;
 import net.minecraftforge.fml.LogicalSidedProvider;
 import net.minecraftforge.fml.network.PacketDistributor;
 import net.minecraftforge.items.CapabilityItemHandler;
+import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
@@ -67,6 +71,8 @@ import org.apache.commons.lang3.tuple.Triple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.vecmath.Vector3f;
+import javax.vecmath.Vector4f;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -78,7 +84,7 @@ public class ApiUtils
 {
 	public static boolean compareToOreName(ItemStack stack, ResourceLocation oreName)
 	{
-		if(!isNonemptyItemTag(oreName))
+		if(!isNonemptyBlockOrItemTag(oreName))
 			return false;
 		Tag<Item> itemTag = ItemTags.getCollection().get(oreName);
 		if(itemTag!=null&&itemTag.getAllElements().contains(stack.getItem()))
@@ -329,6 +335,31 @@ public class ApiUtils
 		return null;
 	}
 
+	public static LazyOptional<IItemHandler> findItemHandlerAtPos(World world, BlockPos pos, Direction side, boolean allowCart)
+	{
+		TileEntity neighbourTile = world.getTileEntity(pos);
+		if(neighbourTile!=null)
+		{
+			LazyOptional<IItemHandler> cap = neighbourTile.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, side);
+			if(cap.isPresent())
+				return cap;
+		}
+		if(allowCart)
+		{
+			if(AbstractRailBlock.isRail(world, pos))
+			{
+				List<Entity> list = world.getEntitiesInAABBexcluding(null, new AxisAlignedBB(pos), entity -> entity instanceof IForgeEntityMinecart);
+				if(!list.isEmpty())
+				{
+					LazyOptional<IItemHandler> cap = list.get(world.rand.nextInt(list.size())).getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY);
+					if(cap.isPresent())
+						return cap;
+				}
+			}
+		}
+		return LazyOptional.empty();
+	}
+
 	public static boolean canInsertStackIntoInventory(TileEntity inventory, ItemStack stack, Direction side)
 	{
 		if(!stack.isEmpty()&&inventory!=null)
@@ -475,12 +506,12 @@ public class ApiUtils
 		return p.add(dim==0?amount: 0, dim==1?amount: 0, dim==2?amount: 0);
 	}
 
-	public static void raytraceAlongCatenary(Connection conn, LocalWireNetwork net, Consumer<Triple<BlockPos, Vec3d, Vec3d>> shouldStop,
+	public static void raytraceAlongCatenary(Connection conn, LocalWireNetwork net, Consumer<Triple<BlockPos, Vec3d, Vec3d>> in,
 											 Consumer<Triple<BlockPos, Vec3d, Vec3d>> close)
 	{
 		Vec3d vStart = getVecForIICAt(net, conn.getEndA(), conn, false);
 		Vec3d vEnd = getVecForIICAt(net, conn.getEndB(), conn, true);
-		raytraceAlongCatenaryRelative(conn, shouldStop, close, vStart, vEnd);
+		raytraceAlongCatenaryRelative(conn, in, close, vStart, vEnd);
 	}
 
 	public static void raytraceAlongCatenaryRelative(Connection conn, Consumer<Triple<BlockPos, Vec3d, Vec3d>> in,
@@ -489,7 +520,13 @@ public class ApiUtils
 	{
 		conn.generateCatenaryData(vStart, vEnd);
 		final BlockPos offset = conn.getEndA().getPosition();
-		CatenaryTracer ct = new CatenaryTracer(conn.catData, offset);
+		raytraceAlongCatenary(conn.getCatenaryData(), offset, in, close);
+	}
+
+	public static void raytraceAlongCatenary(CatenaryData data, BlockPos offset, Consumer<Triple<BlockPos, Vec3d, Vec3d>> in,
+											 Consumer<Triple<BlockPos, Vec3d, Vec3d>> close)
+	{
+		CatenaryTracer ct = new CatenaryTracer(data, offset);
 		ct.calculateIntegerIntersections();
 		ct.forEachSegment(segment -> {
 			if(segment.inBlock)
@@ -679,7 +716,7 @@ public class ApiUtils
 			return new IngredientStack(((Tag)input).getId());
 		else if(input instanceof List)
 		{
-			if (!((List)input).isEmpty())
+			if(!((List)input).isEmpty())
 			{
 				if(((List)input).get(0) instanceof ItemStack)
 					return new IngredientStack(((List<ItemStack>)input));
@@ -855,37 +892,33 @@ public class ApiUtils
 
 	public static void addFutureServerTask(World world, Runnable task, boolean forceFuture)
 	{
-		if(forceFuture)
-			new Thread(() -> addFutureServerTask(world, task)).start();
-		else
-			addFutureServerTask(world, task);
-	}
-	public static void addFutureServerTask(World world, Runnable task)
-	{
 		LogicalSide side = world.isRemote?LogicalSide.CLIENT: LogicalSide.SERVER;
 		//TODO this sometimes causes NPEs?
-		ThreadTaskExecutor<?> tmp = LogicalSidedProvider.WORKQUEUE.get(side);
-		tmp.deferTask(task);
+		ThreadTaskExecutor<? super TickDelayedTask> tmp = LogicalSidedProvider.WORKQUEUE.get(side);
+		if(forceFuture)
+		{
+			int tick;
+			if(world.isRemote)
+				tick = 0;
+			else
+				tick = ((MinecraftServer)tmp).getTickCounter();
+			tmp.enqueue(new TickDelayedTask(tick, task));
+		}
+		else
+			tmp.deferTask(task);
+	}
+
+	public static void addFutureServerTask(World world, Runnable task)
+	{
+		addFutureServerTask(world, task, false);
 	}
 
 	public static void moveConnectionEnd(Connection conn, ConnectionPoint currEnd, ConnectionPoint newEnd, World world)
 	{
-		//TODO too lazy to move this to ConnPoints right now :)
-		//ConnectionPoint fixedPos = conn.getOtherEnd(currEnd);
-		//LocalWireNetwork net = GlobalWireNetwork.getNetwork(world).getLocalNet(newEnd);
-		//IImmersiveConnectable otherSide = net.getConnector(fixedPos);
-		//Vec3d start = ApiUtils.getVecForIICAt(net, fixedPos, conn);
-		//Vec3d end = ApiUtils.getVecForIICAt(net, currEnd, conn);
-		//if(otherSide==null||otherSide.moveConnectionTo(conn, newEnd))
-		{
-			//TODO
-			//ImmersiveNetHandler.INSTANCE.removeConnection(world, conn, start, end);
-			//Connection newConn = new Connection(fixedPos, newEnd, conn.cableType, conn.length);
-			//ImmersiveNetHandler.INSTANCE.addConnection(world, fixedPos, newConn);
-			//ImmersiveNetHandler.INSTANCE.addConnection(world, newEnd,
-			//		new Connection(newEnd, fixedPos, conn.cableType, conn.length));
-			//ImmersiveNetHandler.INSTANCE.addBlockData(world, newConn);
-		}
+		ConnectionPoint fixedPos = conn.getOtherEnd(currEnd);
+		GlobalWireNetwork globalNet = GlobalWireNetwork.getNetwork(world);
+		globalNet.removeConnection(conn);
+		globalNet.addConnection(new Connection(conn.type, fixedPos, newEnd));
 	}
 
 	public static <T> LazyOptional<T> constantOptional(T val)
@@ -930,28 +963,25 @@ public class ApiUtils
 	}
 
 	@OnlyIn(Dist.CLIENT)
-	public static Function<BakedQuad, BakedQuad> transformQuad(Matrix4 mat, @Nullable VertexFormat ignored,
-															   Int2IntFunction colorMultiplier)
+	public static Function<BakedQuad, BakedQuad> transformQuad(TRSRTransformation transform, Int2IntFunction colorMultiplier)
 	{
-		return new QuadTransformer(mat, colorMultiplier);
+		return new QuadTransformer(transform, colorMultiplier);
 	}
 
 	@OnlyIn(Dist.CLIENT)
 	private static class QuadTransformer implements Function<BakedQuad, BakedQuad>
 	{
-		private final Matrix4 transform;
-		private final Matrix4 normalTransform;
+		@Nonnull
+		private final TRSRTransformation transform;
 		@Nullable
 		private final Int2IntFunction colorTransform;
 		private UnpackedBakedQuad.Builder currentQuadBuilder;
 		private final Map<VertexFormat, IVertexConsumer> consumers = new HashMap<>();
 
-		private QuadTransformer(Matrix4 transform, @Nullable Int2IntFunction colorTransform)
+		private QuadTransformer(TRSRTransformation transform, @Nullable Int2IntFunction colorTransform)
 		{
 			this.transform = transform;
 			this.colorTransform = colorTransform;
-			this.normalTransform = transform.copy();
-			normalTransform.transpose().invert();
 		}
 
 		@Override
@@ -1002,9 +1032,10 @@ public class ApiUtils
 				@Override
 				public void setQuadOrientation(@Nonnull Direction orientation)
 				{
-					Vec3d newFront = normalTransform.apply(new Vec3d(orientation.getDirectionVec()));
-					Direction newOrientation = Direction.getFacingFromVector((float)newFront.x, (float)newFront.y,
-							(float)newFront.z);
+					Vec3i normal = orientation.getDirectionVec();
+					Vector3f newFront = new Vector3f(normal.getX(), normal.getY(), normal.getZ());
+					transform.transformNormal(newFront);
+					Direction newOrientation = Direction.getFacingFromVector(newFront.x, newFront.y, newFront.z);
 					currentQuadBuilder.setQuadOrientation(newOrientation);
 				}
 
@@ -1025,15 +1056,17 @@ public class ApiUtils
 				{
 					if(element==posPosFinal&&transform!=null)
 					{
-						Vec3d newPos = transform.apply(new Vec3d(data[0], data[1], data[2]));
+						Vector4f newPos = new Vector4f(data[0], data[1], data[2], 1);
+						transform.transformPosition(newPos);
 						data = new float[3];
 						data[0] = (float)newPos.x;
 						data[1] = (float)newPos.y;
 						data[2] = (float)newPos.z;
 					}
-					else if(element==normPosFinal&&normalTransform!=null)
+					else if(element==normPosFinal)
 					{
-						Vec3d newNormal = normalTransform.apply(new Vec3d(data[0], data[1], data[2]));
+						Vector3f newNormal = new Vector3f(data[0], data[1], data[2]);
+						transform.transformNormal(newNormal);
 						data = new float[3];
 						data[0] = (float)newNormal.x;
 						data[1] = (float)newNormal.y;

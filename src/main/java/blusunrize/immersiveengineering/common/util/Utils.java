@@ -14,11 +14,11 @@ import blusunrize.immersiveengineering.api.DirectionalBlockPos;
 import blusunrize.immersiveengineering.api.Lib;
 import blusunrize.immersiveengineering.api.crafting.IngredientStack;
 import blusunrize.immersiveengineering.common.items.HammerItem;
+import blusunrize.immersiveengineering.common.items.ScrewdriverItem;
 import blusunrize.immersiveengineering.common.items.WirecutterItem;
 import blusunrize.immersiveengineering.common.util.inventory.IIEInventory;
 import com.google.common.base.Charsets;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
+import com.google.common.collect.*;
 import com.google.common.io.Resources;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -31,6 +31,7 @@ import net.minecraft.block.*;
 import net.minecraft.block.material.Material;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.item.ItemEntity;
 import net.minecraft.entity.monster.MonsterEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -47,6 +48,7 @@ import net.minecraft.inventory.container.ContainerType;
 import net.minecraft.item.DyeColor;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.item.crafting.ICraftingRecipe;
 import net.minecraft.item.crafting.IRecipeType;
 import net.minecraft.nbt.CompoundNBT;
@@ -87,6 +89,7 @@ import net.minecraftforge.items.ItemHandlerHelper;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.vecmath.Vector4f;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.URL;
@@ -101,6 +104,7 @@ import static java.lang.Math.min;
 public class Utils
 {
 	public static final Random RAND = new Random();
+	public static final DecimalFormat NUMBERFORMAT_PREFIXED = new DecimalFormat("+#;-#");
 
 	public static boolean isInTag(ItemStack stack, ResourceLocation tagName)
 	{
@@ -159,8 +163,8 @@ public class Utils
 		return s2;
 	}
 
-	public static Map<ResourceLocation, DyeColor> dyesByTag =
-			ImmutableMap.<ResourceLocation, DyeColor>builder()
+	public static final BiMap<ResourceLocation, DyeColor> DYES_BY_TAG =
+			ImmutableBiMap.<ResourceLocation, DyeColor>builder()
 					.put(Tags.Items.DYES_BLACK.getId(), DyeColor.BLACK)
 					.put(Tags.Items.DYES_RED.getId(), DyeColor.RED)
 					.put(Tags.Items.DYES_GREEN.getId(), DyeColor.GREEN)
@@ -179,6 +183,26 @@ public class Utils
 					.put(Tags.Items.DYES_WHITE.getId(), DyeColor.WHITE)
 					.build();
 
+	public static final BiMap<Tag<Item>, Item> WOOL_DYE_BIMAP =
+			ImmutableBiMap.<Tag<Item>, Item>builder()
+					.put(Tags.Items.DYES_BLACK, Items.BLACK_WOOL)
+					.put(Tags.Items.DYES_RED, Items.RED_WOOL)
+					.put(Tags.Items.DYES_GREEN, Items.GREEN_WOOL)
+					.put(Tags.Items.DYES_BROWN, Items.BROWN_WOOL)
+					.put(Tags.Items.DYES_BLUE, Items.BLUE_WOOL)
+					.put(Tags.Items.DYES_PURPLE, Items.PURPLE_WOOL)
+					.put(Tags.Items.DYES_CYAN, Items.CYAN_WOOL)
+					.put(Tags.Items.DYES_LIGHT_GRAY, Items.LIGHT_GRAY_WOOL)
+					.put(Tags.Items.DYES_GRAY, Items.GRAY_WOOL)
+					.put(Tags.Items.DYES_PINK, Items.PINK_WOOL)
+					.put(Tags.Items.DYES_LIME, Items.LIME_WOOL)
+					.put(Tags.Items.DYES_YELLOW, Items.YELLOW_WOOL)
+					.put(Tags.Items.DYES_LIGHT_BLUE, Items.LIGHT_BLUE_WOOL)
+					.put(Tags.Items.DYES_MAGENTA, Items.MAGENTA_WOOL)
+					.put(Tags.Items.DYES_ORANGE, Items.ORANGE_WOOL)
+					.put(Tags.Items.DYES_WHITE, Items.WHITE_WOOL)
+					.build();
+
 	@Nullable
 	public static DyeColor getDye(ItemStack stack)
 	{
@@ -188,8 +212,8 @@ public class Utils
 		if(owners.contains(Tags.Items.DYES.getId()))
 		{
 			for(ResourceLocation tag : owners)
-				if(dyesByTag.containsKey(tag))
-					return dyesByTag.get(tag);
+				if(DYES_BY_TAG.containsKey(tag))
+					return DYES_BY_TAG.get(tag);
 		}
 		return null;
 	}
@@ -258,6 +282,29 @@ public class Utils
 		BlockPos other = pos.offset(facing);
 		BlockState state = world.getBlockState(other);
 		return ((FenceBlock)Blocks.ACACIA_FENCE).func_220111_a(state, Block.hasSolidSide(state, world, pos, facing), facing);
+	}
+
+	public static int generatePlayerInfluencedInt(int median, int deviation, PlayerEntity player, boolean isBad, double luckScale)
+	{
+		int number = player.getRNG().nextInt(deviation);
+		if(isBad)
+			number = -number;
+		number += (int)(luckScale*player.getAttribute(SharedMonsterAttributes.LUCK).getValue());
+
+		return median+Math.min(number, deviation);
+	}
+
+	public static double generateLuckInfluencedDouble(double median, double deviation, double luck, Random rng, boolean isBad, double luckScale)
+	{
+		double number = rng.nextDouble()*deviation;
+		if(isBad)
+			number = -number;
+		number += luckScale*luck;
+		if(deviation < 0)
+			number = Math.max(number, deviation);
+		else
+			number = Math.min(number, deviation);
+		return median+number;
 	}
 
 	public static String formatDouble(double d, String s)
@@ -527,6 +574,13 @@ public class Utils
 		return stack.getItem().getToolTypes(stack).contains(WirecutterItem.CUTTER_TOOL);
 	}
 
+	public static boolean isScrewdriver(ItemStack stack)
+	{
+		if(stack.isEmpty())
+			return false;
+		return stack.getItem().getToolTypes(stack).contains(ScrewdriverItem.SCREWDRIVER_TOOL);
+	}
+
 	public static boolean canBlockDamageSource(LivingEntity entity, DamageSource damageSourceIn)
 	{
 		if(!damageSourceIn.isUnblockable()&&entity.isActiveItemStackBlocking())
@@ -623,6 +677,30 @@ public class Utils
 		tag.put("Explosions", list);
 
 		return tag;
+	}
+
+	public static int intFromRGBA(Vector4f rgba)
+	{
+		float[] array = new float[4];
+		rgba.get(array);
+		return intFromRGBA(array);
+	}
+
+	public static int intFromRGBA(float[] rgba)
+	{
+		int ret = (int)(255*rgba[3]);
+		ret = (ret<<8)+(int)(255*rgba[0]);
+		ret = (ret<<8)+(int)(255*rgba[1]);
+		ret = (ret<<8)+(int)(255*rgba[2]);
+		return ret;
+	}
+
+	public static Vector4f vec4fFromDye(DyeColor dyeColor)
+	{
+		if(dyeColor==null)
+			return new Vector4f(1,1,1,1);
+		float[] rgb = dyeColor.getColorComponentValues();
+		return new Vector4f(rgb[0],rgb[1],rgb[2],1);
 	}
 
 	public static FluidStack drainFluidBlock(World world, BlockPos pos, FluidAction action)
@@ -818,7 +896,7 @@ public class Utils
 							return false;
 					return true;
 				})
-				.orElse(false);
+				.orElse(true);
 	}
 
 	public static boolean isFluidRelatedItemStack(ItemStack stack)

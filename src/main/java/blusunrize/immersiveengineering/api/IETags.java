@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.BiConsumer;
 
+import static blusunrize.immersiveengineering.common.data.IEDataGenerator.rl;
+
 public class IETags
 {
 
@@ -33,14 +35,22 @@ public class IETags
 
 	//Vanilla
 	public static final Tag<Item> clay = new ItemTags.Wrapper(forgeLoc("clay"));
+	public static final Tag<Block> clayBlock = createBlockTag(IERecipes.getStorageBlock("clay"));
+	public static final Tag<Item> charCoal = new ItemTags.Wrapper(forgeLoc("charcoal"));
+	public static final Tag<Block> glowstoneBlock = createBlockTag(IERecipes.getStorageBlock("glowstone"));
+	//Other mods
+	public static final Tag<Block> charCoalBlocks = createBlockTag(IERecipes.getStorageBlock("charcoal"));
 	//IE Blocks
 	public static final Tag<Block> treatedWood = createBlockTag(forgeLoc("treated_wood"));
 	public static final Tag<Block> treatedWoodSlab = createBlockTag(forgeLoc("treated_wood_slab"));
 	public static final Tag<Block> coalCokeBlock = createBlockTag(IERecipes.getStorageBlock("coal_coke"));
+	public static final Tag<Block> scaffoldingSteel = createBlockTag(rl("scaffolding/steel"));
+	public static final Tag<Block> scaffoldingAlu = createBlockTag(rl("scaffolding/aluminum"));
 	//IE Items
 	public static final Tag<Item> treatedStick = new ItemTags.Wrapper(forgeLoc("rods/treated_wood"));
 	public static final Tag<Item> ironRod = new ItemTags.Wrapper(forgeLoc("rods/iron"));
 	public static final Tag<Item> steelRod = new ItemTags.Wrapper(forgeLoc("rods/steel"));
+	public static final Tag<Item> metalRods = new ItemTags.Wrapper(forgeLoc("rods/all_metal"));
 	public static final Tag<Item> aluminumRod = new ItemTags.Wrapper(forgeLoc("rods/aluminum"));
 	public static final Tag<Item> fiberHemp = new ItemTags.Wrapper(forgeLoc("fiber_hemp"));
 	public static final Tag<Item> fabricHemp = new ItemTags.Wrapper(forgeLoc("fabric_hemp"));

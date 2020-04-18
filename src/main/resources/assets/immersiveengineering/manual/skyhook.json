@@ -1,0 +1,11 @@
+{
+  "start": {
+    "type": "crafting",
+    "recipes": [
+      [
+        "skyhook",
+        "wooden_grip"
+      ]
+    ]
+  }
+}

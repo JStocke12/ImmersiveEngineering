@@ -11,6 +11,7 @@ package blusunrize.immersiveengineering.common.blocks.metal;
 import blusunrize.immersiveengineering.api.ApiUtils;
 import blusunrize.immersiveengineering.api.IEEnums.IOSideConfig;
 import blusunrize.immersiveengineering.api.IEProperties;
+import blusunrize.immersiveengineering.api.IEProperties.VisibilityList;
 import blusunrize.immersiveengineering.api.Lib;
 import blusunrize.immersiveengineering.api.energy.immersiveflux.FluxStorage;
 import blusunrize.immersiveengineering.common.IEConfig;
@@ -22,7 +23,6 @@ import blusunrize.immersiveengineering.common.util.EnergyHelper.IIEInternalFluxH
 import blusunrize.immersiveengineering.common.util.Utils;
 import blusunrize.immersiveengineering.common.util.inventory.IIEInventory;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
@@ -45,9 +45,10 @@ import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.shapes.VoxelShape;
 import net.minecraft.util.math.shapes.VoxelShapes;
 import net.minecraft.util.text.TranslationTextComponent;
-import net.minecraft.world.storage.loot.LootContext.Builder;
+import net.minecraft.world.storage.loot.LootContext;
 import net.minecraft.world.storage.loot.LootParameters;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -343,22 +344,22 @@ public abstract class TurretTileEntity extends IEBaseTileEntity implements ITick
 	}
 
 	@Override
-	public float[] getBlockBounds()
+	public VoxelShape getBlockBounds()
 	{
 		if(!isDummy())
-			return null;
+			return VoxelShapes.fullCube();
 		switch(getFacing())
 		{
 			case NORTH:
-				return new float[]{.125f, .0625f, .125f, .875f, .875f, 1};
+				return VoxelShapes.create(.125f, .0625f, .125f, .875f, .875f, 1);
 			case SOUTH:
-				return new float[]{.125f, .0625f, 0, .875f, .875f, .875f};
+				return VoxelShapes.create(.125f, .0625f, 0, .875f, .875f, .875f);
 			case WEST:
-				return new float[]{.125f, .0625f, .125f, 1, .875f, .875f};
+				return VoxelShapes.create(.125f, .0625f, .125f, 1, .875f, .875f);
 			case EAST:
-				return new float[]{0, .0625f, .125f, .875f, .875f, .875f};
+				return VoxelShapes.create(0, .0625f, .125f, .875f, .875f, .875f);
 		}
-		return null;
+		return VoxelShapes.fullCube();
 	}
 
 	AxisAlignedBB renderBB;
@@ -454,7 +455,7 @@ public abstract class TurretTileEntity extends IEBaseTileEntity implements ITick
 	}
 
 	@Override
-	public boolean canHammerRotate(Direction side, float hitX, float hitY, float hitZ, LivingEntity entity)
+	public boolean canHammerRotate(Direction side, Vec3d hit, LivingEntity entity)
 	{
 		return false;
 	}
@@ -501,7 +502,7 @@ public abstract class TurretTileEntity extends IEBaseTileEntity implements ITick
 	}
 
 	@Override
-	public List<ItemStack> getTileDrops(Builder context)
+	public List<ItemStack> getTileDrops(LootContext context)
 	{
 		BlockState state = context.get(LootParameters.BLOCK_STATE);
 		Entity player = context.get(LootParameters.THIS_ENTITY);
@@ -610,10 +611,10 @@ public abstract class TurretTileEntity extends IEBaseTileEntity implements ITick
 		return null;
 	}
 
-	static ArrayList<String> displayList = Lists.newArrayList("base");
+	static VisibilityList displayList = VisibilityList.show("base");
 
 	@Override
-	public List<String> compileDisplayList(BlockState state)
+	public VisibilityList compileDisplayList(BlockState state)
 	{
 		return displayList;
 	}

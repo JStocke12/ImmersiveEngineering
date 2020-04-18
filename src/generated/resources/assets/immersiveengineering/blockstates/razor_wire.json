@@ -1,42 +1,23 @@
 {
   "variants": {
     "facing=north": {
-      "model": "immersiveengineering:connector",
+      "model": "immersiveengineering:block/razor_wire",
       "y": 180,
-      "uvlock": true,
-      "custom": {
-        "flip-v": true,
-        "base": "immersiveengineering:block/razor_wire.obj.ie",
-        "layers": "[]"
-      }
+      "uvlock": true
     },
     "facing=south": {
-      "model": "immersiveengineering:connector",
-      "custom": {
-        "flip-v": true,
-        "base": "immersiveengineering:block/razor_wire.obj.ie",
-        "layers": "[]"
-      }
+      "model": "immersiveengineering:block/razor_wire",
+      "uvlock": true
     },
     "facing=west": {
-      "model": "immersiveengineering:connector",
+      "model": "immersiveengineering:block/razor_wire",
       "y": 90,
-      "uvlock": true,
-      "custom": {
-        "flip-v": true,
-        "base": "immersiveengineering:block/razor_wire.obj.ie",
-        "layers": "[]"
-      }
+      "uvlock": true
     },
     "facing=east": {
-      "model": "immersiveengineering:connector",
+      "model": "immersiveengineering:block/razor_wire",
       "y": 270,
-      "uvlock": true,
-      "custom": {
-        "flip-v": true,
-        "base": "immersiveengineering:block/razor_wire.obj.ie",
-        "layers": "[]"
-      }
+      "uvlock": true
     }
   }
 }

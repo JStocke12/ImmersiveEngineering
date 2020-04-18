@@ -8,10 +8,15 @@
 
 package blusunrize.immersiveengineering.client.render.tile;
 
+import blusunrize.immersiveengineering.ImmersiveEngineering;
+import blusunrize.immersiveengineering.api.IEProperties;
+import blusunrize.immersiveengineering.api.IEProperties.IEObjState;
 import blusunrize.immersiveengineering.api.IEProperties.Model;
+import blusunrize.immersiveengineering.api.IEProperties.VisibilityList;
 import blusunrize.immersiveengineering.api.crafting.BlueprintCraftingRecipe;
 import blusunrize.immersiveengineering.api.crafting.IMultiblockRecipe;
 import blusunrize.immersiveengineering.client.ClientUtils;
+import blusunrize.immersiveengineering.client.render.tile.DynamicModel.ModelType;
 import blusunrize.immersiveengineering.client.utils.SinglePropertyModelData;
 import blusunrize.immersiveengineering.common.blocks.IEBlocks.Multiblocks;
 import blusunrize.immersiveengineering.common.blocks.generic.PoweredMultiblockTileEntity;
@@ -53,6 +58,11 @@ import java.util.*;
 
 public class AutoWorkbenchRenderer extends TileEntityRenderer<AutoWorkbenchTileEntity>
 {
+	private final DynamicModel<Direction> dynamic = DynamicModel.createSided(
+			new ResourceLocation(ImmersiveEngineering.MODID, "block/metal_multiblock/auto_workbench_animated.obj.ie"),
+			"auto_workbench_animated",
+			ModelType.IE_OBJ);
+
 	@Override
 	public void render(AutoWorkbenchTileEntity te, double x, double y, double z, float partialTicks, int destroyStage)
 	{
@@ -65,8 +75,7 @@ public class AutoWorkbenchRenderer extends TileEntityRenderer<AutoWorkbenchTileE
 		BlockState state = getWorld().getBlockState(blockPos);
 		if(state.getBlock()!=Multiblocks.autoWorkbench)
 			return;
-		//TODO state = state.with(IEProperties.DYNAMICRENDER, true);
-		IBakedModel model = blockRenderer.getBlockModelShapes().getModel(state);
+		IBakedModel model = dynamic.get(te.getFacing());
 
 		//Initialize Tesselator and BufferBuilder
 		Tessellator tessellator = Tessellator.getInstance();
@@ -315,9 +324,18 @@ public class AutoWorkbenchRenderer extends TileEntityRenderer<AutoWorkbenchTileE
 		GlStateManager.popMatrix();
 	}
 
-	public static void renderModelPart(final BlockRendererDispatcher blockRenderer, Tessellator tessellator, BufferBuilder worldRenderer, World world, BlockState state, IBakedModel model, BlockPos pos, String... parts)
+	public static void renderModelPart(
+			final BlockRendererDispatcher blockRenderer,
+			Tessellator tessellator,
+			BufferBuilder worldRenderer,
+			World world,
+			BlockState state,
+			IBakedModel model,
+			BlockPos pos,
+			String... parts
+	)
 	{
-		IModelData data = new SinglePropertyModelData<>(new OBJState(Arrays.asList(parts), true), Model.OBJ_STATE);
+		IModelData data = new SinglePropertyModelData<>(new IEObjState(VisibilityList.show(parts)), Model.IE_OBJ_STATE);
 
 		RenderHelper.disableStandardItemLighting();
 		GlStateManager.blendFunc(770, 771);

@@ -15,15 +15,15 @@ import blusunrize.immersiveengineering.common.blocks.stone.AlloySmelterTileEntit
 import blusunrize.immersiveengineering.common.blocks.stone.BlastFurnaceAdvancedTileEntity;
 import blusunrize.immersiveengineering.common.blocks.stone.BlastFurnaceTileEntity;
 import blusunrize.immersiveengineering.common.blocks.stone.CokeOvenTileEntity;
-import blusunrize.immersiveengineering.common.blocks.wooden.FluidSorterTileEntity;
-import blusunrize.immersiveengineering.common.blocks.wooden.ModWorkbenchTileEntity;
-import blusunrize.immersiveengineering.common.blocks.wooden.SorterTileEntity;
-import blusunrize.immersiveengineering.common.blocks.wooden.WoodenCrateTileEntity;
+import blusunrize.immersiveengineering.common.blocks.wooden.*;
+import blusunrize.immersiveengineering.common.entities.CrateMinecartEntity;
+import blusunrize.immersiveengineering.common.entities.ReinforcedCrateMinecartEntity;
 import blusunrize.immersiveengineering.common.items.MaintenanceKitItem;
 import blusunrize.immersiveengineering.common.items.RevolverItem;
 import blusunrize.immersiveengineering.common.items.SpeedloaderItem;
 import blusunrize.immersiveengineering.common.items.ToolboxItem;
 import com.google.common.base.Preconditions;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.EquipmentSlotType;
 import net.minecraft.inventory.container.Container;
@@ -51,6 +51,7 @@ public class GuiHandler
 {
 	private static final Map<Class<? extends TileEntity>, TileContainer<?, ?>> TILE_CONTAINERS = new HashMap<>();
 	private static final Map<Class<? extends Item>, ItemContainer<?>> ITEM_CONTAINERS = new HashMap<>();
+	private static final Map<Class<? extends Entity>, EntityContainer<?, ?>> ENTITY_CONTAINERS = new HashMap<>();
 	private static final Map<ResourceLocation, ContainerType<?>> ALL_TYPES = new HashMap<>();
 
 	public static void commonInit()
@@ -59,10 +60,12 @@ public class GuiHandler
 		register(AlloySmelterTileEntity.class, Lib.GUIID_AlloySmelter, AlloySmelterContainer::new);
 		register(BlastFurnaceTileEntity.class, Lib.GUIID_BlastFurnace, BlastFurnaceContainer::new);
 		useSameContainerTile(BlastFurnaceTileEntity.class, BlastFurnaceAdvancedTileEntity.class);
+		register(CraftingTableTileEntity.class, Lib.GUIID_CraftingTable, CraftingTableContainer::new);
 		register(WoodenCrateTileEntity.class, Lib.GUIID_WoodenCrate, CrateContainer::new);
 		register(ModWorkbenchTileEntity.class, Lib.GUIID_Workbench, ModWorkbenchContainer::new);
 		register(AssemblerTileEntity.class, Lib.GUIID_Assembler, AssemblerContainer::new);
 		register(SorterTileEntity.class, Lib.GUIID_Sorter, SorterContainer::new);
+		register(ItemBatcherTileEntity.class, Lib.GUIID_ItemBatcher, ItemBatcherContainer::new);
 		register(SqueezerTileEntity.class, Lib.GUIID_Squeezer, SqueezerContainer::new);
 		register(FermenterTileEntity.class, Lib.GUIID_Fermenter, FermenterContainer::new);
 		register(RefineryTileEntity.class, Lib.GUIID_Refinery, RefineryContainer::new);
@@ -72,13 +75,21 @@ public class GuiHandler
 		register(TurretGunTileEntity.class, Lib.GUIID_Turret_Gun, TurretContainer::new);
 		register(TurretChemTileEntity.class, Lib.GUIID_Turret_Chem, TurretContainer::new);
 		register(FluidSorterTileEntity.class, Lib.GUIID_FluidSorter, FluidSorterContainer::new);
-		register(BelljarTileEntity.class, Lib.GUIID_Belljar, BelljarContainer::new);
+		register(ClocheTileEntity.class, Lib.GUIID_Cloche, ClocheContainer::new);
 		register(ToolboxTileEntity.class, Lib.GUIID_ToolboxBlock, ToolboxBlockContainer::new);
 
 		register(ToolboxItem.class, Lib.GUIID_Toolbox, ToolboxContainer::new);
 		register(RevolverItem.class, Lib.GUIID_Revolver, RevolverContainer::new);
 		register(MaintenanceKitItem.class, Lib.GUIID_MaintenanceKit, MaintenanceKitContainer::new);
 		useSameContainerItem(RevolverItem.class, SpeedloaderItem.class);
+
+
+		register(CrateMinecartEntity.class, Lib.GUIID_CartCrate,
+				(EntityContainerConstructor<CrateMinecartEntity, Container>)(windowId, inventoryPlayer, entity)
+						-> new CrateEntityContainer(windowId, inventoryPlayer, entity.getContainedTileEntity(), entity));
+		register(ReinforcedCrateMinecartEntity.class, Lib.GUIID_CartReinforcedCrate,
+				(EntityContainerConstructor<CrateMinecartEntity, Container>)(windowId, inventoryPlayer, entity)
+						-> new CrateEntityContainer(windowId, inventoryPlayer, entity.getContainedTileEntity(), entity));
 	}
 
 	public static <T extends TileEntity, C extends IEBaseContainer<? super T>>
@@ -124,6 +135,21 @@ public class GuiHandler
 		ITEM_CONTAINERS.put(toAdd, ITEM_CONTAINERS.get(existing));
 	}
 
+	public static <E extends Entity, C extends Container>
+	void register(Class<? extends Entity> entityClass, ResourceLocation name,
+				  EntityContainerConstructor<E, C> container)
+	{
+		ContainerType<C> type = new ContainerType<>((IContainerFactory<C>)(windowId, inv, data) -> {
+			World world = ImmersiveEngineering.proxy.getClientWorld();
+			int entityId = data.readInt();
+			Entity entity = ImmersiveEngineering.proxy.getClientWorld().getEntityByID(entityId);
+			return container.construct(windowId, inv, (E)entity);
+		});
+		type.setRegistryName(name);
+		ENTITY_CONTAINERS.put(entityClass, new EntityContainer<>(type, container));
+		ALL_TYPES.put(name, type);
+	}
+
 	public static <T extends TileEntity> Container createContainer(PlayerInventory inv, T te, int id)
 	{
 		return ((TileContainer<T, ?>)TILE_CONTAINERS.get(te.getClass())).factory.construct(id, inv, te);
@@ -134,6 +160,11 @@ public class GuiHandler
 		return ITEM_CONTAINERS.get(stack.getItem().getClass()).factory.construct(id, inv, w, slot, stack);
 	}
 
+	public static <E extends Entity> Container createContainer(PlayerInventory inv, E entity, int id)
+	{
+		return ((EntityContainer<E, ?>)ENTITY_CONTAINERS.get(entity.getClass())).factory.construct(id, inv, entity);
+	}
+
 	public static ContainerType<?> getContainerTypeFor(TileEntity te)
 	{
 		return TILE_CONTAINERS.get(te.getClass()).type;
@@ -142,6 +173,11 @@ public class GuiHandler
 	public static ContainerType<?> getContainerTypeFor(ItemStack stack)
 	{
 		return ITEM_CONTAINERS.get(stack.getItem().getClass()).type;
+	}
+
+	public static ContainerType<?> getContainerTypeFor(Entity entity)
+	{
+		return ENTITY_CONTAINERS.get(entity.getClass()).type;
 	}
 
 	public static ContainerType<?> getContainerType(ResourceLocation name)
@@ -156,6 +192,8 @@ public class GuiHandler
 			evt.getRegistry().register(tc.type);
 		for(ItemContainer<?> ic : new HashSet<>(ITEM_CONTAINERS.values()))
 			evt.getRegistry().register(ic.type);
+		for(EntityContainer<?, ?> ec : new HashSet<>(ENTITY_CONTAINERS.values()))
+			evt.getRegistry().register(ec.type);
 	}
 
 	public interface ItemContainerConstructor<C extends Container>
@@ -166,6 +204,11 @@ public class GuiHandler
 	public interface TileContainerConstructor<T extends TileEntity, C extends IEBaseContainer<? super T>>
 	{
 		C construct(int windowId, PlayerInventory inventoryPlayer, T te);
+	}
+
+	public interface EntityContainerConstructor<E extends Entity, C extends Container>
+	{
+		C construct(int windowId, PlayerInventory inventoryPlayer, E entity);
 	}
 
 	private static class TileContainer<T extends TileEntity, C extends IEBaseContainer<? super T>>
@@ -186,6 +229,18 @@ public class GuiHandler
 		final ItemContainerConstructor<C> factory;
 
 		private ItemContainer(ContainerType<C> type, ItemContainerConstructor<C> factory)
+		{
+			this.type = type;
+			this.factory = factory;
+		}
+	}
+
+	private static class EntityContainer<E extends Entity, C extends Container>
+	{
+		final ContainerType<C> type;
+		final EntityContainerConstructor<E, C> factory;
+
+		private EntityContainer(ContainerType<C> type, EntityContainerConstructor<E, C> factory)
 		{
 			this.type = type;
 			this.factory = factory;

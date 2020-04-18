@@ -10,7 +10,6 @@ package blusunrize.immersiveengineering.api.multiblocks;
 
 import blusunrize.immersiveengineering.api.crafting.IngredientStack;
 import blusunrize.immersiveengineering.api.multiblocks.MultiblockHandler.IMultiblock;
-import blusunrize.immersiveengineering.common.blocks.multiblocks.IEMultiblocks;
 import blusunrize.immersiveengineering.common.util.Utils;
 import blusunrize.lib.manual.ManualInstance;
 import blusunrize.lib.manual.ManualUtils;
@@ -21,7 +20,6 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.widget.Widget;
 import net.minecraft.client.gui.widget.button.Button;
 import net.minecraft.client.renderer.BlockRendererDispatcher;
 import net.minecraft.client.renderer.BufferBuilder;
@@ -69,9 +67,6 @@ public class ManualElementMultiblock extends SpecialManualElements
 	public ManualElementMultiblock(ManualInstance manual, IMultiblock multiblock)
 	{
 		super(manual);
-		//TODO remove
-		if(multiblock==null)
-			multiblock = IEMultiblocks.CRUSHER;
 		this.multiblock = multiblock;
 		renderInfo = new MultiblockRenderInfo(multiblock);
 		float diagLength = (float)Math.sqrt(renderInfo.structureHeight*renderInfo.structureHeight+
@@ -185,6 +180,7 @@ public class ManualElementMultiblock extends SpecialManualElements
 		int stackDepth = GL11.glGetInteger(GL11.GL_MODELVIEW_STACK_DEPTH);
 		try
 		{
+			multiblock.getSize();
 			if(multiblock.getStructure()!=null)
 			{
 				long currentTime = System.currentTimeMillis();
@@ -203,12 +199,8 @@ public class ManualElementMultiblock extends SpecialManualElements
 				GlStateManager.enableRescaleNormal();
 				GlStateManager.pushMatrix();
 				RenderHelper.disableStandardItemLighting();
-				int i = 0;
-				ItemStack highlighted = ItemStack.EMPTY;
 
 				final BlockRendererDispatcher blockRender = Minecraft.getInstance().getBlockRendererDispatcher();
-
-				float f = (float)Math.sqrt(structureHeight*structureHeight+structureWidth*structureWidth+structureLength*structureLength);
 
 				GlStateManager.translated(transX, transY, Math.max(structureHeight, Math.max(structureWidth, structureLength)));
 				GlStateManager.scaled(scale, -scale, 1);
@@ -302,7 +294,7 @@ public class ManualElementMultiblock extends SpecialManualElements
 	}
 
 	@Override
-	public void mouseDragged(int x, int y, double clickX, double clickY, double mouseX, double mouseY, double lastX, double lastY, Widget button)
+	public void mouseDragged(int x, int y, double clickX, double clickY, double mouseX, double mouseY, double lastX, double lastY, int mouseButton)
 	{
 		if((clickX >= 40&&clickX < 144&&mouseX >= 20&&mouseX < 164)&&(clickY >= 30&&clickY < 130&&mouseY >= 30&&mouseY < 180))
 		{

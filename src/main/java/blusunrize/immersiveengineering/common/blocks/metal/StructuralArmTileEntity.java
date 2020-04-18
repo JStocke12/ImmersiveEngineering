@@ -11,10 +11,7 @@ package blusunrize.immersiveengineering.common.blocks.metal;
 import blusunrize.immersiveengineering.client.ClientUtils;
 import blusunrize.immersiveengineering.client.models.IOBJModelCallback;
 import blusunrize.immersiveengineering.common.blocks.IEBaseTileEntity;
-import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IAdvancedCollisionBounds;
-import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IAdvancedSelectionBounds;
-import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IDirectionalTile;
-import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.INeighbourChangeTile;
+import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.*;
 import blusunrize.immersiveengineering.common.util.Utils;
 import blusunrize.immersiveengineering.common.util.chickenbones.Matrix4;
 import com.google.common.collect.ImmutableList;
@@ -32,6 +29,9 @@ import net.minecraft.util.Direction.*;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.shapes.IBooleanFunction;
+import net.minecraft.util.math.shapes.VoxelShape;
+import net.minecraft.util.math.shapes.VoxelShapes;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.model.obj.OBJModel.Normal;
@@ -46,7 +46,7 @@ import static blusunrize.immersiveengineering.client.ClientUtils.putVertexData;
 import static net.minecraft.util.Direction.*;
 
 public class StructuralArmTileEntity extends IEBaseTileEntity implements IOBJModelCallback<BlockState>, INeighbourChangeTile,
-		IDirectionalTile, IAdvancedCollisionBounds, IAdvancedSelectionBounds
+		IDirectionalTile, ICollisionBounds, ISelectionBounds, IBlockBounds
 {
 	public static TileEntityType<StructuralArmTileEntity> TYPE;
 
@@ -247,7 +247,7 @@ public class StructuralArmTileEntity extends IEBaseTileEntity implements IOBJMod
 	}
 
 	@Override
-	public boolean canHammerRotate(Direction side, float hitX, float hitY, float hitZ, LivingEntity entity)
+	public boolean canHammerRotate(Direction side, Vec3d hit, LivingEntity entity)
 	{
 		return side.getAxis()==Axis.Y;
 	}
@@ -258,21 +258,10 @@ public class StructuralArmTileEntity extends IEBaseTileEntity implements IOBJMod
 		return axis.getAxis()==Axis.Y;
 	}
 
-	private List<AxisAlignedBB> bounds = null;
+	private VoxelShape bounds = null;
 
 	@Override
-	public List<AxisAlignedBB> getAdvancedSelectionBounds()
-	{
-		return getBounds();
-	}
-
-	@Override
-	public List<AxisAlignedBB> getAdvancedCollisionBounds()
-	{
-		return getBounds();
-	}
-
-	private List<AxisAlignedBB> getBounds()
+	public VoxelShape getBlockBounds()
 	{
 		if(bounds==null)
 		{
@@ -289,9 +278,14 @@ public class StructuralArmTileEntity extends IEBaseTileEntity implements IOBJMod
 						new AxisAlignedBB(0, 1-lowerH, 0, 1, 1, 1),
 						new AxisAlignedBB(0, 1-upperH, 0, 1, 1-lowerH, .5)
 				);
-			bounds = basic.stream()
-					.map(aabb -> Utils.transformAABB(aabb, facing))
-					.collect(ImmutableList.toImmutableList());
+			bounds = VoxelShapes.empty();
+			for(AxisAlignedBB aabb : basic)
+			{
+				AxisAlignedBB transformed = Utils.transformAABB(aabb, facing);
+				VoxelShape subShape = VoxelShapes.create(transformed);
+				bounds = VoxelShapes.combine(bounds, subShape, IBooleanFunction.OR);
+			}
+			bounds = bounds.simplify();
 		}
 		return bounds;
 	}
@@ -424,13 +418,5 @@ public class StructuralArmTileEntity extends IEBaseTileEntity implements IOBJMod
 	public String getCacheKey(BlockState object)
 	{
 		return totalLength+","+slopePosition+","+facing.name()+","+(onCeiling?"1": "0");
-	}
-
-	@Override
-	public float[] getBlockBounds()
-	{
-		return new float[]{
-				0, 0, 0, 1, (slopePosition+.5F)/totalLength, 1
-		};
 	}
 }

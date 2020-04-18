@@ -10,12 +10,12 @@ package blusunrize.immersiveengineering.common.util;
 
 import blusunrize.immersiveengineering.ImmersiveEngineering;
 import blusunrize.immersiveengineering.api.Lib;
-import blusunrize.immersiveengineering.api.shader.ShaderCase.DynamicShaderLayer;
-import blusunrize.immersiveengineering.api.shader.ShaderCase.ShaderLayer;
-import blusunrize.immersiveengineering.api.shader.ShaderCaseDrill;
-import blusunrize.immersiveengineering.api.shader.ShaderCaseMinecart;
+import blusunrize.immersiveengineering.api.shader.DynamicShaderLayer;
+import blusunrize.immersiveengineering.api.shader.ShaderLayer;
 import blusunrize.immersiveengineering.api.shader.ShaderRegistry;
 import blusunrize.immersiveengineering.api.shader.ShaderRegistry.ShaderRegistryEntry;
+import blusunrize.immersiveengineering.api.shader.impl.ShaderCaseDrill;
+import blusunrize.immersiveengineering.api.shader.impl.ShaderCaseMinecart;
 import blusunrize.immersiveengineering.client.ClientUtils;
 import com.mojang.blaze3d.platform.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
@@ -26,6 +26,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import org.lwjgl.opengl.GL11;
 
+import javax.vecmath.Vector4f;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
@@ -56,6 +57,7 @@ public class IEShaders
 		((ShaderCaseMinecart)entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "minecart"))).mirrorSideForPass[2] = false;
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "revolver")).getLayers()[4].setTextureBounds(0, 0, .25, .25);
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "drill")).getLayers()[3].setTextureBounds(10/64d, 34/64d, 26/64d, 50/64d);
+		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "buzzsaw")).getLayers()[3].setTextureBounds(2/64d, 10/64d, 23/64d, 31/64d);
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "chemthrower")).getLayers()[3].setTextureBounds(6/64d, 16/64d, 22/64d, 32/64d);
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "shield")).getLayers()[2].setTextureBounds(0/32d, 9/32d, 14/32d, 25/32d).setCutoutBounds(.0625, 0, .9375, 1);
 
@@ -75,7 +77,7 @@ public class IEShaders
 		addShader("regal", 4, Rarity.UNCOMMON, 0xffd8d4d1, 0xff431c1d, 0xffd8d4d1, 0xffd8d4d1).setInfo(null, "Destiny", "regal");
 		addShader("harrowed", 4, Rarity.RARE, 0xff161321, 0xff431c1d, 0xff161321, 0xff161321).setInfo(null, "Destiny", "harrowed");
 		addShader("taken", 5, Rarity.EPIC, 0xff111c26, 0xff111c26, 0xffbad7dd, 0xff111c26, null, false, 0xffffffff).setInfo(null, "Destiny", "taken");
-		entry = addShader("ikelos", 2, Lib.RARITY_Masterwork, 0xff74665d, 0xff424348, 0xff424348, 0xff313131).setInfo(null, "Destiny", "ikelos");
+		entry = addShader("ikelos", 2, Lib.RARITY_MASTERWORK, 0xff74665d, 0xff424348, 0xff424348, 0xff313131).setInfo(null, "Destiny", "ikelos");
 		addDynamicLayer(entry, "circuit", 0xffefa117,
 				(layer, superColour) -> ClientUtils.pulseRGBAlpha(superColour, 40, .15f, 1f),
 				(pre, partialTick) -> {
@@ -102,19 +104,19 @@ public class IEShaders
 		addShader("angelsthesis", 2, Rarity.EPIC, 0xff1e1e1e, 0xff754697, 0xff77b93d, 0xff505050, null, false, 0xffffffff).setInfo("Mecha", "Neon Genesis Evangelion", "angelsthesis");
 		addShader("sutherland", 0, Rarity.RARE, 0xff44404f, 0xff6b5eae, 0xff702739, 0xff44404f, "whitestripe", true, 0xff702034).setInfo("Mecha", "Code Geass", "sutherland");
 		addShader("exia", 8, Rarity.RARE, 0xffb2220c, 0xff5571d2, 0xffece7e1, 0xffc0fdc7, "whitestripe", true, 0xffc09032).setInfo("Mecha", "Gundam 00", "exia");
-		addShader("crimsonlotus", 3, Rarity.EPIC, 0xffd83239, 0xffd83239, 0xff4e4f53, 0xff2ff177, "whitestripe", true, 0xfff4b951).setInfo("Mecha", "Gurren Lagann", "crimsonlotus");
+		addShader("crimsonlotus", 3, Lib.RARITY_MASTERWORK, 0xffd83239, 0xffd83239, 0xff4e4f53, 0xff2ff177, "whitestripe", true, 0xfff4b951).setInfo("Mecha", "Gurren Lagann", "crimsonlotus");
 		addShader("dominator", 1, Rarity.UNCOMMON, 0xff4c311f, 0xff2a2c36, 0xff5bfffb, 0xff2a2c36, "1_3", true, 0xff2a2c36).setInfo(null, "Psycho-Pass", "dominator");
 
 		addShader("warbird", 7, Rarity.UNCOMMON, 0xff313640, 0xffd8d7d0, 0xffebac00, 0xffd8d7d0).setInfo(null, null, "warbird");
 		addShader("matrix", 7, Rarity.RARE, 0xff053f3c, 0xffe1e1ff, 0xffd4ffff, 0xffffffff, "pipes", true, 0xff84ddd8).setInfo(null, null, "matrix");
 		addShader("twili", 5, Rarity.EPIC, 0xff555d70, 0xff1a1e2b, 0xff222739, 0xff1db58e, "circuit", false, 0xff1db58e).setInfo(null, "The Legend of Zelda: Twilight Princess", "twili");
 		addShader("usurper", 3, Rarity.EPIC, 0xff3e1e1e, 0xff5c6156, 0xff111010, 0xff737a6c, "circuit", false, 0xffca2f38).setInfo(null, "The Legend of Zelda: Twilight Princess", "usurper");
-		entry = addShader("ancient", 6, Lib.RARITY_Masterwork, 0xff9c3a2d, 0xff514848, 0xfff6ae4a, 0xff80fcf2).setInfo(null, "The Legend of Zelda: Breath of the Wild", "ancient");
-		addDynamicLayer(entry, "1_6", 0xaafaf307,
-				(layer, superColour) -> ClientUtils.pulseRGBAlpha(0xff80fcf2, 60, .05f, .5f),
+		entry = addShader("ancient", 6, Lib.RARITY_MASTERWORK, 0xff9c3a2d, 0xff514848, 0xfff6ae4a, 0xff80fcf2).setInfo(null, "The Legend of Zelda: Breath of the Wild", "ancient");
+		addDynamicLayer(entry, "1_6", 0xff80fcf2,//0xaafaf307,
+				(layer, superColour) -> ClientUtils.pulseRGBAlpha(superColour, 60, .05f, .5f),
 				(pre, partialTick) -> ClientUtils.toggleLightmap(pre, true));
 		addLayer(entry, "circuit", 0x99bc9377);
-		((ShaderCaseDrill)entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "drill"))).addHeadLayers(new ShaderLayer(new ResourceLocation(ImmersiveEngineering.MODID, "items/drill_iron"), 0xff80fcf2));
+		((ShaderCaseDrill)entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "drill"))).addHeadLayers(new ShaderLayer(new ResourceLocation(ImmersiveEngineering.MODID, "item/drill_iron"), 0xff80fcf2));
 
 		addShader("glacis", 6, Rarity.RARE, 0xff499bc2, 0x3376d0f9, 0x33bdfffd, 0x33bdfffd).setInfo(null, null, "glacis");
 		addShader("phoenix", 5, Rarity.RARE, 0xff750000, 0xffd00000, 0xffff7f00, 0xffff7f00).setInfo(null, null, "phoenix");
@@ -129,7 +131,7 @@ public class IEShaders
 		addShader("omnitool", 2, Rarity.RARE, 0x40ff952c, 0x30ff952c, 0x40ff952c, 0x20ff952c).setInfo(null, "Mass Effect", "omnitool");
 
 		entry = addShader("kindled", 5, Rarity.EPIC, 0xff2b160b, 0xff3a3a3a, 0x80bf541f, 0xff4f4f4f).setInfo(null, "Dark Souls", "kindled");
-		addBlockScaledLayer(entry, "minecraft:block/fire_layer_0", 0x80ffffff);
+		addBlockScaledLayer(entry, "minecraft:block/fire_0", 0x80ffffff);
 
 		entry = addShader("darkfire", 5, Rarity.EPIC, 0xff1e131b, 0xff211633, 0xff330812, 0xff412965).setInfo(null, "Kingdom Hearts", "darkfire");
 		addBlockScaledLayer(entry, "immersiveengineering:block/shaders/greyscale_fire", 0xff9e83eb);
@@ -138,6 +140,16 @@ public class IEShaders
 		addBlockScaledLayer(entry, "minecraft:block/destroy_stage_8", 0xffff6314);
 
 		addShader("waaagh", 5, Rarity.RARE, 0xff0f0f0f, 0xffdea712, 0xffc15b09, 0xff2f2f2f, "1_7", true, 0xff2f2f2f).setInfo(null, "Warhammer 40k", "waaagh");
+
+		entry = addShader("astartes", 3, Rarity.RARE, 0xff212429, 0xff8e3334, 0xff7b7e87, 0xff7b7e87).setInfo(null, "Warhammer 40k", "astartes");
+		addLayer(entry, "1_8", 0xff8e3334);
+
+		entry = addShader("netherforged", 0, Rarity.EPIC, 0xff575046, 0xff323c2c, 0x80bf541f, 0xff4f4f4f).setInfo(null, null, "netherforged");
+		addBlockScaledLayer(entry, "minecraft:block/magma", 0xffffffff);
+		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "revolver")).getLayers()[4].setTextureBounds(0, 0, .3125, .3125);
+		addLayer(entry, "1_8", 0xff323c2c);
+		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "revolver")).getLayers()[5].setTextureBounds(0, 0, 1, .1875).setCutoutBounds(0, 0, 1, .1875);
+		addLayer(entry, "1_0", 0xff323c2c);
 	}
 
 	public static ShaderRegistryEntry addShader(String name, int overlayType, Rarity rarity, int colourBackground, int colourPrimary, int colourSecondary, int colourBlade)
@@ -154,6 +166,7 @@ public class IEShaders
 	{
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "revolver")).addLayers(new ShaderLayer(new ResourceLocation(texture), colour).setTextureBounds(0, 0, .25, .1875));
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "drill")).addLayers(new ShaderLayer(new ResourceLocation(texture), colour).setTextureBounds(10/64d, 34/64d, 26/64d, 50/64d).setCutoutBounds(.1875f, 0, .8125, .75f));
+		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "buzzsaw")).addLayers(new ShaderLayer(new ResourceLocation(texture), colour).setTextureBounds(0/64f, 10/64f, 26/64f, 20/64f).setCutoutBounds(0, .615, 1, 1));
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "chemthrower")).addLayers(new ShaderLayer(new ResourceLocation(texture), colour).setTextureBounds(6/64d, 16/64d, 22/64d, 24/64d).setCutoutBounds(0, 0, 1, .5));
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "railgun")).addLayers(new ShaderLayer(new ResourceLocation(texture), colour).setTextureBounds(55/64d, 48/64d, 1, 58/64d).setCutoutBounds(.25, .125, .75, .6875));
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "shield")).addLayers(new ShaderLayer(new ResourceLocation(texture), colour).setTextureBounds(0/32f, 9/32f, 14/32f, 26/32f).setCutoutBounds(.0625, 0, .9375, 1));
@@ -165,6 +178,7 @@ public class IEShaders
 	{
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "revolver")).addLayers(new ShaderLayer(new ResourceLocation("immersiveengineering:revolvers/shaders/revolver_"+texture), colour));
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "drill")).addLayers(new ShaderLayer(new ResourceLocation("immersiveengineering:item/shaders/drill_diesel_"+texture), colour));
+		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "buzzsaw")).addLayers(new ShaderLayer(new ResourceLocation("immersiveengineering:item/shaders/buzzsaw_diesel_"+texture), colour));
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "chemthrower")).addLayers(new ShaderLayer(new ResourceLocation("immersiveengineering:item/shaders/chemthrower_"+texture), colour));
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "railgun")).addLayers(new ShaderLayer(new ResourceLocation("immersiveengineering:item/shaders/railgun_"+texture), colour));
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "shield")).addLayers(new ShaderLayer(new ResourceLocation("immersiveengineering:item/shaders/shield_"+texture), colour));
@@ -173,10 +187,11 @@ public class IEShaders
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "banner")).addLayers(new ShaderLayer(new ResourceLocation("immersiveengineering:block/shaders/banner_"+texture), colour));
 	}
 
-	private static void addDynamicLayer(ShaderRegistryEntry entry, String texture, int colour, final BiFunction<ShaderLayer, Integer, Integer> func_getColour, final BiConsumer<Boolean, Float> func_modifyRender)
+	private static void addDynamicLayer(ShaderRegistryEntry entry, String texture, int colour, final BiFunction<ShaderLayer, Vector4f, Vector4f> func_getColour, final BiConsumer<Boolean, Float> func_modifyRender)
 	{
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "revolver")).addLayers(new InternalDynamicShaderLayer(new ResourceLocation("immersiveengineering:revolvers/shaders/revolver_"+texture), colour, func_getColour, func_modifyRender));
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "drill")).addLayers(new InternalDynamicShaderLayer(new ResourceLocation("immersiveengineering:item/shaders/drill_diesel_"+texture), colour, func_getColour, func_modifyRender));
+		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "buzzsaw")).addLayers(new InternalDynamicShaderLayer(new ResourceLocation("immersiveengineering:item/shaders/buzzsaw_diesel_"+texture), colour, func_getColour, func_modifyRender));
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "chemthrower")).addLayers(new InternalDynamicShaderLayer(new ResourceLocation("immersiveengineering:item/shaders/chemthrower_"+texture), colour, func_getColour, func_modifyRender));
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "railgun")).addLayers(new InternalDynamicShaderLayer(new ResourceLocation("immersiveengineering:item/shaders/railgun_"+texture), colour, func_getColour, func_modifyRender));
 		entry.getCase(new ResourceLocation(ImmersiveEngineering.MODID, "shield")).addLayers(new InternalDynamicShaderLayer(new ResourceLocation("immersiveengineering:item/shaders/shield_"+texture), colour, func_getColour, func_modifyRender));
@@ -192,10 +207,10 @@ public class IEShaders
 
 	private static class InternalDynamicShaderLayer extends DynamicShaderLayer
 	{
-		private final BiFunction<ShaderLayer, Integer, Integer> func_getColour;
+		private final BiFunction<ShaderLayer, Vector4f, Vector4f> func_getColour;
 		private final BiConsumer<Boolean, Float> func_modifyRender;
 
-		public InternalDynamicShaderLayer(ResourceLocation texture, int colour, BiFunction<ShaderLayer, Integer, Integer> func_getColour, BiConsumer<Boolean, Float> func_modifyRender)
+		public InternalDynamicShaderLayer(ResourceLocation texture, int colour, BiFunction<ShaderLayer, Vector4f, Vector4f> func_getColour, BiConsumer<Boolean, Float> func_modifyRender)
 		{
 			super(texture, colour);
 			this.func_getColour = func_getColour;
@@ -204,11 +219,11 @@ public class IEShaders
 
 		@Override
 		@OnlyIn(Dist.CLIENT)
-		public int getColour()
+		public Vector4f getColor()
 		{
 			if(func_getColour!=null)
-				return func_getColour.apply(this, super.getColour());
-			return super.getColour();
+				return func_getColour.apply(this, super.getColor());
+			return super.getColor();
 		}
 
 		@Override

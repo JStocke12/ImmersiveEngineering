@@ -30,44 +30,23 @@ import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.world.IBlockReader;
 import net.minecraft.world.World;
 
+import javax.annotation.Nullable;
+
 public abstract class ConnectorBlock extends IETileProviderBlock
 {
-
-	public ConnectorBlock(String name, IProperty... additional)
+	public ConnectorBlock(String name, @Nullable Class<? extends BlockItemIE> item, IProperty... additional)
 	{
 		super(name, Block.Properties.create(Material.IRON).hardnessAndResistance(3.0F, 15.0F),
-				BlockItemIE.class, additional);
+				item, additional);
 		lightOpacity = 0;
 		setBlockLayer(BlockRenderLayer.SOLID, BlockRenderLayer.TRANSLUCENT);
 		setNotNormalBlock();
 	}
 
-		/*
-		TODO when unlisted properties are back
-	@Override
-	protected void fillStateContainer(Builder<Block, IBlockState> builder)
+	public ConnectorBlock(String name, IProperty... additional)
 	{
-		IUnlistedProperty[] unlisted = (base instanceof ExtendedBlockState)?((ExtendedBlockState)base).getUnlistedProperties().toArray(new IUnlistedProperty[0]): new IUnlistedProperty[0];
-		unlisted = Arrays.copyOf(unlisted, unlisted.length+1);
-		unlisted[unlisted.length-1] = IEProperties.CONNECTIONS;
-		return new ExtendedBlockState(this, base.getProperties().toArray(new IProperty[0]), unlisted);
+		this(name, BlockItemIE.class, additional);
 	}
-
-	@Override
-	public IBlockState getExtendedState(IBlockState state, IBlockAccess world, BlockPos pos)
-	{
-		state = super.getExtendedState(state, world, pos);
-		if(state instanceof IExtendedBlockState)
-		{
-			IExtendedBlockState ext = (IExtendedBlockState)state;
-			TileEntity te = world.getTileEntity(pos);
-			if(!(te instanceof ImmersiveConnectableTileEntity))
-				return state;
-			state = ext.with(IEProperties.CONNECTIONS, ((ImmersiveConnectableTileEntity)te).genConnBlockstate());
-		}
-		return state;
-	}
-	*/
 
 	@Override
 	public void neighborChanged(BlockState state, World world, BlockPos pos, Block block, BlockPos fromPos, boolean isMoving)

@@ -35,11 +35,13 @@ import blusunrize.immersiveengineering.common.blocks.metal.SampleDrillTileEntity
 import blusunrize.immersiveengineering.common.blocks.wooden.TurntableTileEntity;
 import blusunrize.immersiveengineering.common.items.*;
 import blusunrize.immersiveengineering.common.items.IEItemInterfaces.IBulletContainer;
+import blusunrize.immersiveengineering.common.items.IEItemInterfaces.IScrollwheel;
 import blusunrize.immersiveengineering.common.items.IEItems.Misc;
 import blusunrize.immersiveengineering.common.items.IEItems.Tools;
-import blusunrize.immersiveengineering.common.network.MessageChemthrowerSwitch;
 import blusunrize.immersiveengineering.common.network.MessageMagnetEquip;
 import blusunrize.immersiveengineering.common.network.MessageRequestBlockUpdate;
+import blusunrize.immersiveengineering.common.network.MessageRevolverRotate;
+import blusunrize.immersiveengineering.common.network.MessageScrollwheelItem;
 import blusunrize.immersiveengineering.common.util.EnergyHelper;
 import blusunrize.immersiveengineering.common.util.IEPotions;
 import blusunrize.immersiveengineering.common.util.ItemNBTHelper;
@@ -116,7 +118,7 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 {
 	private boolean shieldToggleButton = false;
 	private int shieldToggleTimer = 0;
-	private static final String[] BULLET_TOOLTIP = {"\u00A0\u00A0IE\u00A0", "\u00A0\u00A0AMMO\u00A0", "\u00A0\u00A0HERE\u00A0", "\u00A0\u00A0--\u00A0"};
+	private static final String[] BULLET_TOOLTIP = {"  IE ", "  AMMO ", "  HERE ", "  -- "};
 
 	@Override
 	public void onResourceManagerReload(@Nonnull IResourceManager resourceManager, Predicate<IResourceType> resourcePredicate)
@@ -163,11 +165,11 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 					this.shieldToggleButton = ClientUtils.mc().gameSettings.keyBindBack.isKeyDown();
 
 
-				if(ClientProxy.keybind_chemthrowerSwitch.isPressed())
+				if(!ClientProxy.keybind_chemthrowerSwitch.isInvalid()&&ClientProxy.keybind_chemthrowerSwitch.isPressed())
 				{
 					ItemStack held = event.player.getHeldItem(Hand.MAIN_HAND);
-					if(held.getItem() instanceof ChemthrowerItem&&((ChemthrowerItem)held.getItem()).getUpgrades(held).getBoolean("multitank"))
-						ImmersiveEngineering.packetHandler.sendToServer(new MessageChemthrowerSwitch(true));
+					if(held.getItem() instanceof IScrollwheel)
+						ImmersiveEngineering.packetHandler.sendToServer(new MessageScrollwheelItem(true));
 				}
 			}
 		}
@@ -213,7 +215,8 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 				&&BlastFurnaceRecipe.isValidBlastFuel(event.getItemStack()))
 			event.getToolTip().add(new TranslationTextComponent("desc.immersiveengineering.info.blastFuelTime", BlastFurnaceRecipe.getBlastFuelTime(event.getItemStack()))
 					.setStyle(gray));
-		if(IEConfig.GENERAL.oreTooltips.get()&&event.getFlags().isAdvanced())
+
+		if(IEConfig.GENERAL.tagTooltips.get()&&event.getFlags().isAdvanced())
 		{
 			for(ResourceLocation oid : ItemTags.getCollection().getOwningTags(event.getItemStack().getItem()))
 				event.getToolTip().add(new StringTextComponent(oid.toString()).setStyle(gray));
@@ -234,7 +237,7 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 			if(bullets!=null)
 			{
 				int bulletAmount = ((IBulletContainer)stack.getItem()).getBulletCount(stack);
-				int line = event.getLines().size()-Utils.findSequenceInList(event.getLines(), BULLET_TOOLTIP, (s, s2) -> s.equals(s2.substring(2)));
+				int line = event.getLines().size()-Utils.findSequenceInList(event.getLines(), BULLET_TOOLTIP, (a, b) -> b.endsWith(a));
 
 				int currentX = event.getX();
 				int currentY = line > 0?event.getY()+(event.getHeight()+1-line*10): event.getY()-42;
@@ -264,7 +267,7 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 		{
 			event.getSound().getCategory();
 		}
-		if(!ItemEarmuffs.affectedSoundCategories.contains(event.getSound().getCategory().getName()))
+		if(!EarmuffsItem.affectedSoundCategories.contains(event.getSound().getCategory().getName()))
 			return;
 		if(ClientUtils.mc().player!=null&&!ClientUtils.mc().player.getItemStackFromSlot(EquipmentSlotType.HEAD).isEmpty())
 		{
@@ -279,9 +282,9 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 					if(blacklist!=null&&blacklist.equalsIgnoreCase(event.getSound().getSoundLocation().toString()))
 						return;
 				if(event.getSound() instanceof ITickableSound)
-					event.setResultSound(new IEMuffledTickableSound((ITickableSound)event.getSound(), ItemEarmuffs.getVolumeMod(earmuffs)));
+					event.setResultSound(new IEMuffledTickableSound((ITickableSound)event.getSound(), EarmuffsItem.getVolumeMod(earmuffs)));
 				else
-					event.setResultSound(new IEMuffledSound(event.getSound(), ItemEarmuffs.getVolumeMod(earmuffs)));
+					event.setResultSound(new IEMuffledSound(event.getSound(), EarmuffsItem.getVolumeMod(earmuffs)));
 
 				if(event.getSound().getCategory()==SoundCategory.RECORDS)
 				{
@@ -835,9 +838,14 @@ public class ClientEventHandler implements ISelectiveResourceReloadListener
 						}
 					}
 				}
-				if(IEConfig.TOOLS.chemthrower_scroll.get()&&equipped.getItem() instanceof ChemthrowerItem&&((ChemthrowerItem)equipped.getItem()).getUpgrades(equipped).getBoolean("multitank"))
+				if(IEConfig.TOOLS.chemthrower_scroll.get()&&equipped.getItem() instanceof IScrollwheel)
 				{
-					ImmersiveEngineering.packetHandler.sendToServer(new MessageChemthrowerSwitch(event.getScrollDelta() < 0));
+					ImmersiveEngineering.packetHandler.sendToServer(new MessageScrollwheelItem(event.getScrollDelta() < 0));
+					event.setCanceled(true);
+				}
+				if(equipped.getItem() instanceof RevolverItem)
+				{
+					ImmersiveEngineering.packetHandler.sendToServer(new MessageRevolverRotate(event.getScrollDelta() < 0));
 					event.setCanceled(true);
 				}
 			}

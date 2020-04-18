@@ -9,15 +9,16 @@
 package blusunrize.immersiveengineering.common.items;
 
 import blusunrize.immersiveengineering.ImmersiveEngineering;
-import blusunrize.immersiveengineering.api.IEProperties;
 import blusunrize.immersiveengineering.api.Lib;
 import blusunrize.immersiveengineering.api.shader.IShaderItem;
 import blusunrize.immersiveengineering.api.shader.ShaderCase;
-import blusunrize.immersiveengineering.api.shader.ShaderCase.ShaderLayer;
-import blusunrize.immersiveengineering.api.shader.ShaderCaseItem;
+import blusunrize.immersiveengineering.api.shader.ShaderLayer;
 import blusunrize.immersiveengineering.api.shader.ShaderRegistry;
+import blusunrize.immersiveengineering.api.shader.impl.ShaderCaseItem;
 import blusunrize.immersiveengineering.common.blocks.IEBlocks.Cloth;
+import blusunrize.immersiveengineering.common.blocks.cloth.ShaderBannerStandingBlock;
 import blusunrize.immersiveengineering.common.blocks.cloth.ShaderBannerTileEntity;
+import blusunrize.immersiveengineering.common.blocks.cloth.ShaderBannerWallBlock;
 import blusunrize.immersiveengineering.common.items.IEItemInterfaces.ITextureOverride;
 import blusunrize.immersiveengineering.common.util.ItemNBTHelper;
 import blusunrize.immersiveengineering.common.util.Utils;
@@ -34,7 +35,6 @@ import net.minecraft.item.Rarity;
 import net.minecraft.tileentity.BannerTileEntity;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ActionResultType;
-import net.minecraft.util.Direction;
 import net.minecraft.util.NonNullList;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
@@ -67,7 +67,6 @@ public class ShaderItem extends IEBaseItem implements IShaderItem, ITextureOverr
 	}
 
 
-
 	@Override
 	public ResourceLocation getShaderName(ItemStack stack)
 	{
@@ -93,14 +92,17 @@ public class ShaderItem extends IEBaseItem implements IShaderItem, ITextureOverr
 				if(sCase!=null)
 				{
 					boolean wall = blockState.getBlock() instanceof WallBannerBlock;
-					int orientation = wall?blockState.get(WallBannerBlock.HORIZONTAL_FACING).getIndex(): blockState.get(BannerBlock.ROTATION);
-					world.setBlockState(pos, Cloth.shaderBanner.getDefaultState().with(IEProperties.FACING_HORIZONTAL, Direction.SOUTH));
+
+					if(wall)
+						world.setBlockState(pos, Cloth.shaderBannerWall.getDefaultState()
+								.with(ShaderBannerWallBlock.FACING, blockState.get(WallBannerBlock.HORIZONTAL_FACING)));
+					else
+						world.setBlockState(pos, Cloth.shaderBanner.getDefaultState()
+								.with(ShaderBannerStandingBlock.ROTATION, blockState.get(BannerBlock.ROTATION)));
 					tile = world.getTileEntity(pos);
 					if(tile instanceof ShaderBannerTileEntity)
 					{
-						//TODO use blockstate props similar to vanilla banners
 						((ShaderBannerTileEntity)tile).wall = wall;
-						((ShaderBannerTileEntity)tile).orientation = (byte)orientation;
 						((ShaderBannerTileEntity)tile).shader.setShaderItem(Utils.copyStackWithAmount(ctx.getItem(), 1));
 						tile.markDirty();
 						return ActionResultType.SUCCESS;
@@ -110,7 +112,7 @@ public class ShaderItem extends IEBaseItem implements IShaderItem, ITextureOverr
 			else if(tile instanceof ShaderBannerTileEntity)
 			{
 				ItemStack current = ((ShaderBannerTileEntity)tile).shader.getShaderItem();
-				if(!current.isEmpty() && !world.isRemote && (ctx.getPlayer()==null || !ctx.getPlayer().abilities.isCreativeMode))
+				if(!current.isEmpty()&&!world.isRemote&&(ctx.getPlayer()==null||!ctx.getPlayer().abilities.isCreativeMode))
 				{
 					double dx = pos.getX()+.5+ctx.getFace().getXOffset();
 					double dy = pos.getY()+.5+ctx.getFace().getYOffset();
@@ -205,7 +207,7 @@ public class ShaderItem extends IEBaseItem implements IShaderItem, ITextureOverr
 			{
 				ShaderLayer[] layers = sCase.getLayers();
 				if(pass < layers.length&&layers[pass]!=null)
-					return layers[pass].getColour();
+					return Utils.intFromRGBA(layers[pass].getColor());
 				return 0xffffffff;
 			}
 		}

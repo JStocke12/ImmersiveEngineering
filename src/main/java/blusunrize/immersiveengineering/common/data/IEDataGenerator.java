@@ -9,7 +9,7 @@
 package blusunrize.immersiveengineering.common.data;
 
 import blusunrize.immersiveengineering.ImmersiveEngineering;
-import blusunrize.immersiveengineering.common.data.model.ModelHelper;
+import blusunrize.immersiveengineering.common.IERecipes;
 import net.minecraft.data.DataGenerator;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -24,18 +24,23 @@ public class IEDataGenerator
 	@SubscribeEvent
 	public static void gatherData(GatherDataEvent event)
 	{
+		// To work around the fact that some recipe generators need at least some recipes to be registered
+		// TODO remove once we have JSON-based machine recipes
+		IERecipes.readdRecipes();
 		DataGenerator gen = event.getGenerator();
 		if(event.includeServer())
 		{
 			gen.addProvider(new Recipes(gen));
-			gen.addProvider(new BlockTags(gen));
+			gen.addProvider(new IEBlockTags(gen));
 			gen.addProvider(new ItemTags(gen));
 			gen.addProvider(new BlockLoot(gen));
 			gen.addProvider(new GeneralLoot(gen));
-			ModelHelper.EXISTING_FILE_HELPER = event.getExistingFileHelper();
-			Models models = new Models(gen);
-			gen.addProvider(models);
-			gen.addProvider(new BlockStates(gen, models));
+			LoadedModels loadedModels = new LoadedModels(gen, event.getExistingFileHelper());
+			BlockStates blockStates = new BlockStates(gen, event.getExistingFileHelper(), loadedModels);
+			gen.addProvider(blockStates);
+			gen.addProvider(loadedModels);
+			gen.addProvider(new ItemModels(gen, event.getExistingFileHelper(), blockStates));
+			gen.addProvider(new Advancements(gen));
 		}
 	}
 

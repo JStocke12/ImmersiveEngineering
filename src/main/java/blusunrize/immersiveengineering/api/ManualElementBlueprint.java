@@ -137,19 +137,17 @@ public class ManualElementBlueprint extends SpecialManualElements
 		GlStateManager.enableBlend();
 		RenderHelper.disableStandardItemLighting();
 
-		if(!highlighted.isEmpty())
-			gui.renderTooltip(gui.getTooltipFromItem(highlighted), mouseX, mouseY);
+		this.renderHighlightedTooltip(gui, mouseX, mouseY);
 		GlStateManager.enableBlend();
 		RenderHelper.disableStandardItemLighting();
 	}
-
 
 	@Override
 	public boolean listForSearch(String searchTag)
 	{
 		for(PositionedItemStack[] recipe : this.recipes)
 			for(PositionedItemStack pStack : recipe)
-				for(ItemStack stack : pStack.displayList)
+				for(ItemStack stack : pStack.getDisplayList())
 					if(ManualUtils.listStack(searchTag, stack))
 						return true;
 		return false;
@@ -158,6 +156,10 @@ public class ManualElementBlueprint extends SpecialManualElements
 	@Override
 	public int getPixelsTaken()
 	{
-		return 0;//TODO
+		int maxY = 0;
+		for(PositionedItemStack[] recipe : recipes)
+			for(PositionedItemStack pstack : recipe)
+				maxY = Math.max(maxY, pstack.y);
+		return maxY+18;
 	}
 }

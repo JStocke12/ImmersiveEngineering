@@ -42,11 +42,11 @@ public class IEWorldGen
 	public static List<ResourceLocation> oreDimBlacklist = new ArrayList<>();
 	public static Map<String, Boolean> retrogenMap = new HashMap<>();
 
-	public static void addOreGen(String name, BlockState state, int maxVeinSize, int minY, int maxY, int chunkOccurence, double weight)
+	public static void addOreGen(String name, BlockState state, int maxVeinSize, int minY, int maxY, int chunkOccurence)
 	{
 		OreFeatureConfig cfg = new OreFeatureConfig(FillerBlockType.NATURAL_STONE, state, maxVeinSize);
 		ConfiguredFeature<?> feature = Biome.createDecoratedFeature(Feature.ORE, cfg, Placement.COUNT_RANGE,
-				new CountRangeConfig(chunkOccurence, minY, 0, maxY));
+				new CountRangeConfig(chunkOccurence, minY, minY, maxY));
 		for(Biome biome : Biome.BIOMES)
 			biome.addFeature(Decoration.UNDERGROUND_ORES, feature);
 		features.put(name, feature);
@@ -70,6 +70,7 @@ public class IEWorldGen
 	}
 
 	@SubscribeEvent
+	//TODO this is broken in Forge
 	public void chunkLoad(ChunkDataEvent.Load event)
 	{
 		DimensionType dimension = event.getWorld().getDimension().getType();
